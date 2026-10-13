@@ -112,6 +112,12 @@ create policy tickets_todo on tickets for all using (hogar_id = mi_hogar()) with
 drop policy if exists recurrentes_todo on recurrentes;
 create policy recurrentes_todo on recurrentes for all using (hogar_id = mi_hogar()) with check (hogar_id = mi_hogar());
 
+-- Permisos de tabla para usuarios con sesión (los proyectos nuevos de Supabase no los dan por defecto).
+-- Las reglas RLS de arriba siguen limitando cada fila a su hogar.
+grant usage on schema public to authenticated;
+grant select, update on hogares, miembros to authenticated;
+grant select, insert, update, delete on gastos, tickets, recurrentes to authenticated;
+
 -- Alta: crear hogar o unirse con el código de invitación -------------------------
 create or replace function crear_hogar(p_nombre_persona text, p_nombre_hogar text default 'Casa')
 returns uuid language plpgsql security definer set search_path = public as $$
