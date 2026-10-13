@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f7a55">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Gastos de Casa</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!--APP-START-->
+<!-- Acceso -->
+<section class="auth" id="v-login" hidden>
+  <h1>Gastos de Casa</h1>
+  <p class="hint" id="login-sub">Entra con tu correo y contraseña.</p>
+  <form id="f-login">
+    <input class="field" type="email" id="l-email" placeholder="Correo" autocomplete="email" required>
+    <input class="field" type="password" id="l-pass" placeholder="Contraseña (mínimo 8 caracteres)" autocomplete="current-password" minlength="8" required>
+    <button class="btn primary" type="submit" id="l-btn">Entrar</button>
+  </form>
+  <button class="link" id="l-modo" type="button">¿Primera vez? Crea tu cuenta</button>
+  <p class="err" id="l-err" role="alert"></p>
+</section>
+
+<!-- Crear hogar o unirse -->
+<section class="auth" id="v-hogar" hidden>
+  <h1>Tu hogar</h1>
+  <p class="hint">Uno de los dos crea el hogar y le pasa el código al otro.</p>
+  <form id="f-hogar">
+    <input class="field" id="h-nombre" placeholder="Tu nombre (ej. David)" required>
+    <input class="field" id="h-codigo" placeholder="Código de invitación (si te lo han pasado)" autocomplete="off">
+    <button class="btn primary" type="submit">Continuar</button>
+  </form>
+  <p class="err" id="h-err" role="alert"></p>
+</section>
+
+<!-- App -->
+<div class="app" id="v-app" hidden>
+  <div class="top">
+    <p class="hola" id="hola">Hola</p>
+    <div class="mesnav"><button class="ib" id="mes-ant" aria-label="Mes anterior">‹</button><span id="mes-t"></span><button class="ib" id="mes-sig" aria-label="Mes siguiente">›</button></div>
+  </div>
+  <p class="demo" id="demo" hidden>Estás viendo la demo con datos de ejemplo, guardados solo en este navegador. Cuando conectemos la base de datos, lo que apuntéis aparecerá en los móviles de los dos.</p>
+
+  <!-- Inicio -->
+  <main class="vista" id="t-inicio">
+    <section class="card saldo" aria-label="Gastado este mes">
+      <span class="lbl" id="s-lbl">Gastado este mes</span>
+      <span class="big" id="s-total">0,00 €</span>
+      <div class="prog" aria-hidden="true"><i id="s-prog" style="width:0"></i></div>
+      <span class="meta" id="s-meta"></span>
+    </section>
+    <section class="card" aria-label="Avisos" id="c-alertas"><h2>Avisos</h2><div class="alertas" id="alertas"></div></section>
+    <section class="card" aria-label="Gasto por grupo">
+      <h2>¿En qué se va el dinero?</h2>
+      <div class="dona"><div id="dona"></div><div class="leyenda" id="leyenda"></div></div>
+    </section>
+    <section class="card" aria-label="Cómo vamos">
+      <div class="ch"><h2>Cómo vamos</h2><div class="seg" role="group" aria-label="Periodo del gráfico"><button id="v-mes" aria-pressed="true">Mes</button><button id="v-ano" aria-pressed="false">Año</button></div></div>
+      <div class="leg" id="leg"></div>
+      <div class="chart" id="chart"></div>
+      <div class="comp" id="comp"></div>
+    </section>
+    <section class="card" aria-label="Histórico">
+      <h2>Últimos 12 meses</h2>
+      <div class="hist" id="hist"></div>
+    </section>
+    <section class="card" aria-label="Por persona">
+      <h2>Quién ha pagado</h2>
+      <div class="bars" id="bars-q"></div>
+    </section>
+  </main>
+
+  <!-- Movimientos -->
+  <main class="vista" id="t-movs" hidden>
+    <div class="filtros">
+      <input class="field buscar" id="f-q" type="search" placeholder="Buscar (Mercadona, colegio…)" aria-label="Buscar">
+      <select class="field" id="f-grupo" aria-label="Grupo"></select>
+      <select class="field" id="f-quien" aria-label="Quién"></select>
+      <select class="field" id="f-cuenta" aria-label="Cuenta"></select>
+      <select class="field" id="f-pago" aria-label="Forma de pago"></select>
+    </div>
+    <div id="movs"></div>
+  </main>
+
+  <!-- Presupuestos y gastos fijos -->
+  <main class="vista" id="t-pres" hidden>
+    <section class="card">
+      <div class="ch"><h2>Presupuesto del mes</h2><span class="hint" id="p-tot"></span></div>
+      <p class="hint">Pon cuánto queréis gastar como máximo en cada grupo. Te avisamos al llegar al 90 %.</p>
+      <div class="pres" id="pres"></div>
+      <button class="btn" id="p-ok">Guardar presupuestos</button>
+      <p class="toast" id="p-msg" role="status"></p>
+    </section>
+    <section class="card">
+      <h2>Gastos fijos</h2>
+      <p class="hint">Alquiler, colegio, luz, suscripciones… Se apuntan solos el día que toca cada mes.</p>
+      <ul class="fijos" id="fijos"></ul>
+      <details>
+        <summary class="link">Añadir gasto fijo</summary>
+        <form class="fform" id="fform" style="margin-top:10px">
+          <label class="full">Nombre<input class="field" id="r-nom" placeholder="Ej. Alquiler" required></label>
+          <label>Importe (€)<input class="field" id="r-imp" inputmode="decimal" required></label>
+          <label>Día del mes<input class="field" id="r-dia" type="number" min="1" max="31" value="1" required></label>
+          <label>Grupo<select class="field" id="r-grupo"></select></label>
+          <label>Categoría<select class="field" id="r-cat"></select></label>
+          <label>Quién<select class="field" id="r-quien"></select></label>
+          <label>Cuenta<select class="field" id="r-cuenta"></select></label>
+          <button class="btn primary full" type="submit">Guardar gasto fijo</button>
+        </form>
+      </details>
+      <p class="toast" id="r-msg" role="status"></p>
+    </section>
+  </main>
+
+  <!-- Más -->
+  <main class="vista" id="t-mas" hidden>
+    <section class="card" aria-label="Tickets con garantía">
+      <h2>Tickets con garantía</h2>
+      <p class="hint">Haz una foto al ticket o sube el PDF. En España, lo comprado desde 2022 tiene 3 años de garantía por ley.</p>
+      <form class="fform" id="tform">
+        <label class="full">Producto<input class="field" id="t-prod" placeholder="Ej. Lavadora Bosch" required></label>
+        <label>Tienda<input class="field" id="t-tienda"></label>
+        <label>Importe (€)<input class="field" id="t-imp" inputmode="decimal"></label>
+        <label>Fecha de compra<input class="field" type="date" id="t-fecha" required></label>
+        <label>Años de garantía<input class="field" type="number" id="t-anos" min="0" max="10" step="0.5" value="3"></label>
+        <label class="full">Foto o PDF del ticket<input class="field" type="file" id="t-file" accept="image/*,application/pdf"></label>
+        <button class="btn primary full" type="submit">Guardar ticket</button>
+      </form>
+      <p class="toast" id="tmsg" role="status"></p>
+      <ul class="lst" id="tickets"></ul>
+      <div id="visor" class="visor" hidden><div class="ch"><b id="visor-t"></b><button class="btn sm" id="visor-x">Cerrar</button></div><div id="visor-c"></div></div>
+    </section>
+    <section class="card" aria-label="Importar extracto">
+      <h2>Importar extracto del banco</h2>
+      <p class="hint">Descarga el CSV de movimientos desde la web de tu banco y súbelo aquí. Grupo y categoría se ponen solos.</p>
+      <div class="fform">
+        <label>Cuenta del extracto<select class="field" id="csv-cu"></select></label>
+        <label>De quién es<select class="field" id="csv-q"></select></label>
+        <label class="full">Archivo CSV<input class="field" type="file" id="csv" accept=".csv,text/csv,.txt"></label>
+      </div>
+      <p class="toast" id="csvmsg" role="status"></p>
+    </section>
+    <section class="card ajustes" aria-label="Ajustes">
+      <h2>Grupos, categorías y cuentas</h2>
+      <label>Grupos y categorías (una línea por grupo: GRUPO: categoría, categoría)<textarea class="field" id="aj-cat" rows="7"></textarea></label>
+      <label>Cuentas bancarias (separadas por comas)<input class="field" id="aj-cu"></label>
+      <span class="hint">Lo que usa cada uno por defecto</span>
+      <div class="defs" id="aj-def"></div>
+      <button class="btn" id="aj-ok" type="button">Guardar cambios</button>
+      <p class="toast" id="aj-msg" role="status"></p>
+    </section>
+    <section class="card" aria-label="Familia">
+      <h2>Familia</h2>
+      <p class="hint">Para que tu pareja entre en este hogar: que cree su cuenta en la app y escriba este código.</p>
+      <span class="code" id="codigo"></span>
+      <button class="btn danger" id="salir">Cerrar sesión</button>
+    </section>
+  </main>
+</div>
+
+<!-- Barra inferior -->
+<nav class="nav" id="nav" hidden aria-label="Secciones">
+  <div class="in">
+    <button class="tab" data-t="inicio" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Inicio</button>
+    <button class="tab" data-t="movs"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>Movimientos</button>
+    <button class="fab" id="fab" aria-label="Apuntar un gasto">+</button>
+    <button class="tab" data-t="pres"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6"/></svg>Presupuesto</button>
+    <button class="tab" data-t="mas"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>Más</button>
+  </div>
+</nav>
+
+<!-- Hoja para apuntar un gasto -->
+<div class="velo" id="velo" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="h-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="h-tit">Nuevo gasto</h2><button class="ib" id="h-x" aria-label="Cerrar">✕</button></div>
+    <div class="monto" aria-live="polite"><span class="n" id="h-monto">0</span><span class="e">€</span></div>
+    <div class="grupos" id="h-grupos" role="group" aria-label="Grupo"></div>
+    <div class="cats" id="h-cats" role="group" aria-label="Categoría"></div>
+    <div class="pk"><span class="pl">Quién paga</span><div class="chips" id="h-q"></div></div>
+    <div class="pk"><span class="pl">Cuenta</span><div class="chips" id="h-cu"></div></div>
+    <div class="pk"><span class="pl">Forma de pago</span><div class="chips" id="h-p"></div></div>
+    <div class="extra"><input class="field" id="h-nota" placeholder="Nota (opcional)" aria-label="Nota"><input class="field" type="date" id="h-fecha" aria-label="Fecha"></div>
+    <div class="teclado" id="teclado"></div>
+    <button class="btn primary guardar" id="h-ok">Guardar gasto</button>
+    <p class="toast" id="h-msg" role="status"></p>
+  </div>
+</div>
+<!--APP-END-->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="store.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
