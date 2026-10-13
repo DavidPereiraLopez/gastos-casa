@@ -142,6 +142,7 @@ revoke all on function crear_hogar(text, text) from public, anon;
 revoke all on function unirse_hogar(text, text) from public, anon;
 grant execute on function crear_hogar(text, text) to authenticated;
 grant execute on function unirse_hogar(text, text) to authenticated;
+revoke all on function mi_hogar() from public, anon;
 grant execute on function mi_hogar() to authenticated;
 
 -- Storage: bucket privado para fotos y PDF de tickets ------------------------------
