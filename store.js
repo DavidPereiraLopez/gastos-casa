@@ -28,13 +28,15 @@
       unirse: async (codigo, nombre) => ok(await sb.rpc("unirse_hogar", { p_codigo: codigo, p_nombre_persona: nombre })),
       cargar: async () => {
         const desde = iso(new Date(new Date().getFullYear() - 2, 0, 1)); // este año y los dos anteriores
-        const [h, ms, gs, ts, rs] = await Promise.all([
+        const [h, ms, gs, ts, rs, es] = await Promise.all([
           sb.from("hogares").select("*").single(),
           sb.from("miembros").select("*").order("creado"),
           sb.from("gastos").select("*").gte("fecha", desde).order("fecha", { ascending: false }).limit(20000),
           sb.from("tickets").select("*").order("fecha_compra", { ascending: false }),
-          sb.from("recurrentes").select("*").order("dia")]);
-        return { hogar: ok(h), miembros: ok(ms), gastos: ok(gs), tickets: ok(ts), recurrentes: ok(rs) };
+          sb.from("recurrentes").select("*").order("dia"),
+          sb.from("eventos").select("*").order("fecha")]);
+        // si la tabla del calendario aún no existe, la app sigue funcionando sin él
+        return { hogar: ok(h), miembros: ok(ms), gastos: ok(gs), tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data };
       },
       addGastos: async filas => ok(await sb.from("gastos").insert(filas).select()),
       // gastos fijos: el índice único (recurrente_id, periodo) evita duplicados si los dos móviles lo intentan a la vez
@@ -55,11 +57,16 @@
       },
       delTicket: async t => { if (t.archivo) await sb.storage.from("tickets").remove([t.archivo]); ok(await sb.from("tickets").delete().eq("id", t.id)) },
       urlTicket: async t => ok(await sb.storage.from("tickets").createSignedUrl(t.archivo, 300)).signedUrl, // enlace de 5 minutos
+      addEvento: async f => ok(await sb.from("eventos").insert(f).select().single()),
+      updEvento: async (id, c) => ok(await sb.from("eventos").update(c).eq("id", id).select().single()),
+      delEvento: async id => ok(await sb.from("eventos").delete().eq("id", id)),
+      // días cambiados aparte de una serie, desde una fecha (al cortar la serie en "este y los siguientes")
+      delCopiasDesde: async (serieId, desde) => ok(await sb.from("eventos").delete().eq("serie_id", serieId).gte("fecha", desde)),
       escuchar: (hogarId, fn) => {
         if (canal) return;
         let t = null; const avisar = () => { clearTimeout(t); t = setTimeout(fn, 400) };
         canal = sb.channel("hogar-" + hogarId);
-        ["gastos", "tickets", "recurrentes"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
+        ["gastos", "tickets", "recurrentes", "eventos"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
         canal.subscribe();
       },
       dejarDeEscuchar: () => { if (canal) { sb.removeChannel(canal); canal = null } }
@@ -105,11 +112,23 @@
       const tickets = [{ id: uid(), producto: "Lavadora Bosch Serie 4", tienda: "MediaMarkt", fecha_compra: yAgo(2, 10), anos_garantia: 3, importe: 449, archivo: null },
         { id: uid(), producto: "Portátil Lenovo IdeaPad", tienda: "El Corte Inglés", fecha_compra: yAgo(1, 2), anos_garantia: 3, importe: 699, archivo: null },
         { id: uid(), producto: "Cafetera Krups", tienda: "Amazon", fecha_compra: yAgo(3, 6), anos_garantia: 3, importe: 89.9, archivo: null }];
-      return { hogar, miembros, gastos, tickets, recurrentes };
+      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo() };
+    }
+    function eventosDemo() {
+      const d = n => iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n));
+      const lunes = new Date(today); lunes.setDate(today.getDate() - (today.getDay() + 6) % 7);
+      const ev = f => ({ id: uid(), hora_ini: null, hora_fin: null, nota: null, repetir: "no", cada: 1, dias_semana: [], hasta: null, excepciones: [], serie_id: null, ...f });
+      return [ev({ titulo: "Llevar a las niñas al cole", fecha: iso(lunes), hora_ini: "08:45", quien: "David", repetir: "semanal", dias_semana: [1, 3, 5], hasta: d(60) }),
+        ev({ titulo: "Recoger a las niñas", fecha: iso(lunes), hora_ini: "16:30", quien: "Pareja", repetir: "semanal", dias_semana: [1, 2, 3, 4, 5], hasta: d(60) }),
+        ev({ titulo: "Danza", fecha: iso(lunes), hora_ini: "17:30", hora_fin: "18:30", quien: "Los dos", repetir: "semanal", dias_semana: [2, 4], hasta: d(90) }),
+        ev({ titulo: "Sacar la basura", fecha: d(0), hora_ini: "21:00", quien: "David", repetir: "diario", hasta: d(30) }),
+        ev({ titulo: "Pagar comunidad", fecha: d(-today.getDate() + 5), quien: "Pareja", repetir: "mensual", hasta: d(365) }),
+        ev({ titulo: "Dentista", fecha: d(3), hora_ini: "10:00", hora_fin: "10:30", quien: "Pareja", nota: "Clínica Sonrisas" })];
     }
     let db;
     try { db = JSON.parse(localStorage.getItem(KEY)) } catch (e) { }
     if (!db || !db.hogar) db = semilla();
+    if (!db.eventos) db.eventos = eventosDemo();
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) { } };
     const archivos = {}; // fotos de tickets de la demo: solo mientras la página está abierta
     const clone = x => JSON.parse(JSON.stringify(x));
@@ -133,6 +152,10 @@
       delRecurrente: async id => { db.recurrentes = db.recurrentes.filter(r => r.id !== id); save() },
       addTicket: async (fila, file) => { const t = { id: uid(), ...fila }; if (file) { t.archivo = "demo/" + t.id + (file.type === "application/pdf" ? ".pdf" : ".jpg"); archivos[t.archivo] = URL.createObjectURL(file) } db.tickets.push(t); save(); return clone(t) },
       delTicket: async t => { db.tickets = db.tickets.filter(x => x.id !== t.id); save() },
+      addEvento: async f => { const e = { id: uid(), repetir: "no", cada: 1, dias_semana: [], excepciones: [], serie_id: null, ...f }; db.eventos.push(e); save(); return clone(e) },
+      updEvento: async (id, c) => { const e = db.eventos.find(x => x.id === id); Object.assign(e, c); save(); return clone(e) },
+      delEvento: async id => { db.eventos = db.eventos.filter(x => x.id !== id && x.serie_id !== id); save() },
+      delCopiasDesde: async (serieId, desde) => { db.eventos = db.eventos.filter(x => !(x.serie_id === serieId && x.fecha >= desde)); save() },
       urlTicket: async t => { if (!archivos[t.archivo]) throw new Error("En la demo las fotos solo se ven mientras la página está abierta."); return archivos[t.archivo] },
       escuchar: () => { }, dejarDeEscuchar: () => { }
     };

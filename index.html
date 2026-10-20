@@ -44,7 +44,7 @@
 <div class="app" id="v-app" hidden>
   <div class="top">
     <p class="hola" id="hola">Hola</p>
-    <div class="mesnav"><button class="ib" id="mes-ant" aria-label="Mes anterior">‹</button><span id="mes-t"></span><button class="ib" id="mes-sig" aria-label="Mes siguiente">›</button></div>
+    <div class="mesnav" id="top-mes"><button class="ib" id="mes-ant" aria-label="Mes anterior">‹</button><span id="mes-t"></span><button class="ib" id="mes-sig" aria-label="Mes siguiente">›</button></div>
   </div>
   <p class="demo" id="demo" hidden>Estás viendo la demo con datos de ejemplo, guardados solo en este navegador. Cuando conectemos la base de datos, lo que apuntéis aparecerá en los móviles de los dos.</p>
 
@@ -87,6 +87,20 @@
       <select class="field" id="f-pago" aria-label="Forma de pago"></select>
     </div>
     <div id="movs"></div>
+  </main>
+
+  <!-- Calendario compartido -->
+  <main class="vista" id="t-cal" hidden>
+    <section class="card" aria-label="Calendario">
+      <div class="ch"><div class="mesnav"><button class="ib" id="cal-ant" aria-label="Mes anterior">‹</button><span id="cal-t"></span><button class="ib" id="cal-sig" aria-label="Mes siguiente">›</button></div><button class="btn sm" id="cal-hoy" type="button">Hoy</button></div>
+      <div class="calsem" aria-hidden="true"><span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+      <div class="calgrid" id="cal-grid" role="grid"></div>
+      <div class="calleg" id="cal-leg"></div>
+    </section>
+    <section class="card" aria-label="Día elegido">
+      <div class="ch"><h2 id="cal-dia-t"></h2><button class="btn sm primary" id="cal-add" type="button">Añadir</button></div>
+      <ul class="evs" id="cal-evs"></ul>
+    </section>
   </main>
 
   <!-- Presupuestos y gastos fijos -->
@@ -171,6 +185,7 @@
     <button class="tab" data-t="inicio" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Inicio</button>
     <button class="tab" data-t="movs"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>Movimientos</button>
     <button class="fab" id="fab" aria-label="Apuntar un gasto">+</button>
+    <button class="tab" data-t="cal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Calendario</button>
     <button class="tab" data-t="pres"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6"/></svg>Presupuesto</button>
     <button class="tab" data-t="mas"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>Más</button>
   </div>
@@ -191,6 +206,35 @@
     <div class="teclado" id="teclado"></div>
     <button class="btn primary guardar" id="h-ok">Guardar gasto</button>
     <p class="toast" id="h-msg" role="status"></p>
+  </div>
+</div>
+<!-- Hoja para añadir o cambiar algo del calendario -->
+<div class="velo" id="velo-ev" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="e-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="e-tit">Nuevo en el calendario</h2><button class="ib" id="e-x" aria-label="Cerrar" type="button">✕</button></div>
+    <form class="fform" id="e-form" novalidate>
+      <div class="pk full" id="e-alc-w"><span class="pl">¿Qué cambias?</span><div class="chips" id="e-alc" role="group" aria-label="Qué cambias"></div></div>
+      <label class="full">Qué es<input class="field" id="e-titulo" placeholder="Ej. Recoger a las niñas, dentista…" required></label>
+      <label>Día<input class="field" type="date" id="e-fecha" required></label>
+      <label class="chk"><input type="checkbox" id="e-todo"> Todo el día</label>
+      <label class="e-hora">Desde<input class="field" type="time" id="e-ini"></label>
+      <label class="e-hora">Hasta<input class="field" type="time" id="e-fin"></label>
+      <div class="pk full"><span class="pl">Quién</span><div class="chips" id="e-q" role="group" aria-label="Quién"></div></div>
+      <div class="full e-rep-w">
+        <div class="pk"><span class="pl">Se repite</span><div class="chips" id="e-rep" role="group" aria-label="Se repite"></div></div>
+        <div class="e-rep-op fform">
+          <div class="pk full" id="e-dias-w"><span class="pl">Qué días</span><div class="chips" id="e-dias" role="group" aria-label="Días de la semana"></div></div>
+          <label>Cada<span class="cada"><input class="field" type="number" id="e-cada" min="1" max="52" value="1" inputmode="numeric"><span id="e-cada-u">semanas</span></span></label>
+          <label>Hasta el día<input class="field" type="date" id="e-hasta"></label>
+          <p class="hint full">Si dejas «Hasta el día» vacío, se repite sin fin.</p>
+        </div>
+      </div>
+      <label class="full">Nota<input class="field" id="e-nota" placeholder="Opcional"></label>
+      <button class="btn primary full guardar" type="submit" id="e-ok">Guardar</button>
+      <button class="btn danger full" type="button" id="e-del" hidden>Borrar</button>
+      <p class="toast full" id="e-msg" role="status"></p>
+    </form>
   </div>
 </div>
 <!--APP-END-->
