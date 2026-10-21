@@ -41,7 +41,9 @@ const errTxt = e => {
 const corto = r => ({ id: r.id, f: r.fecha, i: Number(r.importe), g: r.grupo, c: r.categoria, n: r.nota, q: r.quien, p: r.forma_pago, cu: r.cuenta, rid: r.recurrente_id });
 const colorG = g => { const i = hogar.grupos.findIndex(x => x.g === g); return `var(--c${(i < 0 ? 7 : i % 8) + 1})` };
 const sigla = c => { const p = String(c).replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(w => w.length > 2 || /^\p{Lu}/u.test(w)); return ((p[0] || c)[0] + (p[1] ? p[1][0] : (p[0] || c)[1] || "")).toUpperCase() };
-const ico = (g, c) => `<span class="ico" style="background:${colorG(g)}" aria-hidden="true">${esc(sigla(c))}</span>`;
+const ico = (g, c) => c ? `<span class="ico" style="background:${colorG(g)}" aria-hidden="true">${esc(sigla(c))}</span>` : '<span class="ico sin" aria-hidden="true">?</span>';
+// gastos guardados sin categoría: grupo y categoría vacíos
+const SIN = "Sin categoría", nomG = g => g || SIN;
 // personas del hogar: los que tienen cuenta y los apuntados en Más > Familia que aún no se han unido
 const personas = () => (hogar.personas || []).filter(p => p.nombre && !miembros.some(m => m.nombre === p.nombre));
 const nombres = () => [...miembros.map(m => m.nombre), ...personas().map(p => p.nombre)];
@@ -135,6 +137,7 @@ function pintar() {
 
 // ---------------- Inicio ----------------
 const delMes = k => data.filter(x => x.f.startsWith(k));
+const sinCategoria = () => data.filter(x => !x.c).sort((a, b) => b.f.localeCompare(a.f));
 function pintarInicio() {
   const mes = delMes(mesVista), total = mes.reduce((a, x) => a + x.i, 0);
   const pres = Object.values(hogar.presupuestos).reduce((a, v) => a + (Number(v) || 0), 0);
@@ -165,7 +168,7 @@ function pintarInicio() {
   // gasto inusual: este mes ya supera en un 30 % la media de los 3 meses anteriores (comparando a la misma fecha)
   if (esActual) {
     const dia = today.getDate();
-    Object.keys(porG).forEach(g => {
+    Object.keys(porG).filter(g => g).forEach(g => {
       let suma = 0; for (let k = 1; k <= 3; k++) { const m = addMes(mesVista, -k); suma += data.filter(x => x.g === g && x.f.startsWith(m) && +x.f.slice(8) <= dia).reduce((a, x) => a + x.i, 0) }
       const media = suma / 3; if (media > 20 && porG[g] > media * 1.3) al.push(["warn", "↑", `<b>${esc(g)}</b> va un ${Math.round((porG[g] / media - 1) * 100)} % por encima de lo normal a estas alturas del mes.`]);
     });
@@ -175,15 +178,17 @@ function pintarInicio() {
   // posibles duplicados: mismo importe y nota el mismo día
   const vistos = {}; mes.forEach(x => { const k = x.f + "|" + x.i + "|" + (x.n || "").toLowerCase(); if (vistos[k] && x.n) al.push(["warn", "=", `Posible cargo repetido: <b>${esc(x.n)}</b> ${fmt(x.i)} el ${+x.f.slice(8)}.`]); vistos[k] = 1 });
   tickets.forEach(t => { const d = Math.ceil((finGarantia(t) - today) / 864e5); if (d >= 0 && d <= 90) al.push(["warn", "⌛", `La garantía de <b>${esc(t.producto)}</b> caduca en ${d} días.`]) });
+  const nSin = sinCategoria().length;
+  if (nSin) al.unshift(["info", "?", `${nSin === 1 ? "Hay <b>1 gasto sin categoría</b>" : `Hay <b>${nSin} gastos sin categoría</b>`}. <button class="link" type="button" data-accion="categorizar">Ponle categoría</button>`]);
   $("c-alertas").hidden = !al.length;
   $("alertas").innerHTML = al.map(([c, i, t]) => `<div class="al ${c}"><span class="ic" aria-hidden="true">${i}</span><span>${t}</span></div>`).join("");
 
   // Dona por grupo
   const orden = Object.entries(porG).sort((a, b) => b[1] - a[1]);
   const R = 52, C = 2 * Math.PI * R, gap = orden.length > 1 ? 2.5 : 0; let off = 0;
-  const arcos = orden.map(([g, v]) => { const len = v / (total || 1) * C; const s = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${colorG(g)}" stroke-width="18" stroke-dasharray="${Math.max(0, len - gap)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"><title>${esc(g)}: ${fmt(v)}</title></circle>`; off += len; return s }).join("");
+  const arcos = orden.map(([g, v]) => { const len = v / (total || 1) * C; const s = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${colorG(g)}" stroke-width="18" stroke-dasharray="${Math.max(0, len - gap)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"><title>${esc(nomG(g))}: ${fmt(v)}</title></circle>`; off += len; return s }).join("");
   $("dona").innerHTML = `<svg viewBox="0 0 140 140" role="img" aria-label="Gasto por grupo">${total ? arcos : `<circle r="${R}" cx="70" cy="70" fill="none" stroke="var(--line)" stroke-width="18"/>`}<text x="70" y="70" text-anchor="middle" class="ctr">${fmt0(total)}</text><text x="70" y="86" text-anchor="middle" class="ctr2">${orden.length} grupos</text></svg>`;
-  $("leyenda").innerHTML = orden.map(([g, v]) => `<button class="lg" data-g="${esc(g)}"><span class="dot" style="background:${colorG(g)}"></span><span class="nm">${esc(g)} <small>${Math.round(v / total * 100)} %</small></span><span class="v">${fmt(v)}</span></button>`).join("") || '<p class="hint">Sin gastos este mes.</p>';
+  $("leyenda").innerHTML = orden.map(([g, v]) => `<button class="lg" data-g="${esc(g)}"><span class="dot" style="background:${colorG(g)}"></span><span class="nm">${esc(nomG(g))} <small>${Math.round(v / total * 100)} %</small></span><span class="v">${fmt(v)}</span></button>`).join("") || '<p class="hint">Sin gastos este mes.</p>';
 
   // Comparativas a la misma fecha
   const corte = esActual ? today : new Date(vy, vm, 0);
@@ -214,7 +219,8 @@ function pintarInicio() {
   $("bars-q").innerHTML = Object.entries(porQ).sort((a, b) => b[1] - a[1]).map(([q, v]) => `<div class="bar"><span>${esc(q)}</span><div class="track"><div class="fill" style="width:${v / maxQ * 100}%"></div></div><span class="v">${fmt(v)}</span></div>`).join("") || '<p class="hint">Sin gastos este mes.</p>';
 }
 $("hist").addEventListener("click", e => { const b = e.target.closest(".hb"); if (b) { mesVista = b.dataset.m; pintar() } });
-$("leyenda").addEventListener("click", e => { const b = e.target.closest(".lg"); if (b) { $("f-grupo").value = b.dataset.g; pintarMovs(); irA("movs") } });
+$("leyenda").addEventListener("click", e => { const b = e.target.closest(".lg"); if (b) { pintarMovs(); $("f-grupo").value = b.dataset.g || "__sin"; pintarMovs(); irA("movs") } });
+$("alertas").addEventListener("click", e => { if (e.target.closest('[data-accion="categorizar"]')) categorizarPendientes() });
 $("v-mes").addEventListener("click", () => { vista = "mes"; $("v-mes").setAttribute("aria-pressed", "true"); $("v-ano").setAttribute("aria-pressed", "false"); pintarInicio() });
 $("v-ano").addEventListener("click", () => { vista = "ano"; $("v-ano").setAttribute("aria-pressed", "true"); $("v-mes").setAttribute("aria-pressed", "false"); pintarInicio() });
 
@@ -257,28 +263,33 @@ function dibujar(corte) {
 }
 
 // ---------------- Movimientos ----------------
-function opciones(id, lista, todos) { const v = $(id).value; $(id).innerHTML = `<option value="">${todos}</option>` + lista.map(x => `<option>${esc(x)}</option>`).join(""); if (lista.includes(v)) $(id).value = v }
+function opciones(id, lista, todos, extra = "") { const v = $(id).value; $(id).innerHTML = `<option value="">${todos}</option>` + lista.map(x => `<option>${esc(x)}</option>`).join("") + extra; if (lista.includes(v) || (extra && v === "__sin")) $(id).value = v }
 ["f-q", "f-grupo", "f-quien", "f-cuenta", "f-pago"].forEach(id => $(id).addEventListener("input", pintarMovs));
 function pintarMovs() {
-  opciones("f-grupo", hogar.grupos.map(x => x.g), "Todos los grupos"); opciones("f-quien", nombres(), "Todos");
+  opciones("f-grupo", hogar.grupos.map(x => x.g), "Todos los grupos", `<option value="__sin">${SIN}</option>`); opciones("f-quien", nombres(), "Todos");
   opciones("f-cuenta", hogar.cuentas, "Todas las cuentas"); opciones("f-pago", PAGOS, "Cualquier forma de pago");
   const q = $("f-q").value.trim().toLowerCase(), fg = $("f-grupo").value, fq = $("f-quien").value, fc = $("f-cuenta").value, fp = $("f-pago").value;
-  const lista = delMes(mesVista).filter(x => (!fg || x.g === fg) && (!fq || x.q === fq) && (!fc || x.cu === fc) && (!fp || x.p === fp) &&
+  // «Sin categoría» enseña los de todos los meses, para no dejarse ninguno
+  const sinC = fg === "__sin", lista = (sinC ? data : delMes(mesVista)).filter(x => (!fg || (sinC ? !x.c : x.g === fg)) && (!fq || x.q === fq) && (!fc || x.cu === fc) && (!fp || x.p === fp) &&
     (!q || [x.n, x.c, x.g, x.q, x.cu].some(v => String(v || "").toLowerCase().includes(q)))).sort((a, b) => b.f.localeCompare(a.f));
   const dias = {}; lista.forEach(x => (dias[x.f] ||= []).push(x));
   const tot = lista.reduce((a, x) => a + x.i, 0);
-  $("movs").innerHTML = lista.length ? `<p class="hint">${lista.length} movimientos · ${fmt(tot)}</p>` + Object.entries(dias).map(([f, xs]) => {
+  $("movs").innerHTML = lista.length ? `<p class="hint">${lista.length} movimientos${sinC ? " sin categoría, de todos los meses" : ""} · ${fmt(tot)}</p>` +
+    (sinC ? '<button class="btn primary sm" type="button" data-accion="categorizar">Ponerles categoría uno a uno</button>' : "") + Object.entries(dias).map(([f, xs]) => {
     const d = new Date(f + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
     return `<div class="dia"><span>${d}</span><span>${fmt(xs.reduce((a, x) => a + x.i, 0))}</span></div><ul class="movs">` + xs.map(x =>
-      `<li class="mv" data-id="${x.id}">${ico(x.g, x.c)}<span><span class="t">${esc(x.n || x.c)}</span><br><span class="s">${esc(x.g)} › ${esc(x.c)} · ${esc(x.q || "")}${x.cu ? " · " + esc(x.cu) : ""}${x.p ? " · " + esc(x.p) : ""}${x.rid ? " · fijo" : ""}</span></span><span class="a">−${fmt(x.i)}</span></li>`).join("") + "</ul>"
-  }).join("") : '<div class="vacio">No hay movimientos con estos filtros. Toca + para apuntar uno.</div>';
+      `<li class="mv" data-id="${x.id}">${ico(x.g, x.c)}<span><span class="t">${esc(x.n || x.c || SIN)}</span><br><span class="s">${x.c ? `${esc(x.g)} › ${esc(x.c)}` : `<b class="sinc">${SIN}</b>`} · ${esc(x.q || "")}${x.cu ? " · " + esc(x.cu) : ""}${x.p ? " · " + esc(x.p) : ""}${x.rid ? " · fijo" : ""}</span></span><span class="a">−${fmt(x.i)}</span></li>`).join("") + "</ul>"
+  }).join("") : `<div class="vacio">${sinC ? "Todos los gastos tienen categoría." : "No hay movimientos con estos filtros. Toca + para apuntar uno."}</div>`;
 }
 $("movs").addEventListener("click", async e => {
+  if (e.target.closest('[data-accion="categorizar"]')) return categorizarPendientes();
+  const ed = e.target.closest("[data-ed]"); if (ed) return abrirHoja(data.find(x => x.id === ed.dataset.ed));
   const del = e.target.closest("[data-del]");
   if (del) return dosToques(del, async () => { try { await store.delGasto(del.dataset.del); data = data.filter(x => x.id !== del.dataset.del); pintar() } catch (err) { del.textContent = errTxt(err) } });
   const li = e.target.closest(".mv"); if (!li) return;
   const abierto = li.querySelector(".acc"); document.querySelectorAll(".mv .acc").forEach(a => a.remove());
-  if (!abierto) li.insertAdjacentHTML("beforeend", `<span class="acc"><button class="btn sm danger" data-del="${li.dataset.id}">Borrar</button></span>`);
+  const x = data.find(g => g.id === li.dataset.id);
+  if (!abierto) li.insertAdjacentHTML("beforeend", `<span class="acc"><button class="btn sm${x.c ? "" : " primary"}" data-ed="${x.id}">${x.c ? "Cambiar" : "Ponle categoría"}</button><button class="btn sm danger" data-del="${x.id}">Borrar</button></span>`);
 });
 
 // ---------------- Presupuestos y gastos fijos ----------------
@@ -407,21 +418,34 @@ $("pe-form").addEventListener("submit", e => {
 $("personas").addEventListener("click", e => { const b = e.target.closest("[data-pe]"); if (b) dosToques(b, () => guardarPersonas(hogar.personas.filter(p => p.nombre !== b.dataset.pe), "Quitada.")) });
 
 // ---------------- Hoja "Nuevo gasto" ----------------
-let monto = "";
-$("teclado").innerHTML = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "⌫"].map(k => `<button class="tecla" data-k="${k}" aria-label="${k === "⌫" ? "Borrar" : k}">${k}</button>`).join("");
-const pintaMonto = () => { $("h-monto").textContent = monto || "0" };
+// El importe se escribe con un teclado propio que siempre está a la vista. Con «+» se suman varios importes (ej. dos tickets).
+// Sin categoría se guarda igual (grupo y categoría vacíos) y se le pone luego desde el aviso de Inicio o desde Gastos.
+let monto = "", editId = null, cola = [], colaN = 0, selNuevo = null;
+$("teclado").innerHTML = ["1", "2", "3", "C", "4", "5", "6", "+", "7", "8", "9", ",", "0", "⌫"].map(k =>
+  `<button type="button" class="tecla${/[0-9]/.test(k) ? "" : " op"}" data-k="${k}" aria-label="${{ "⌫": "Borrar", "C": "Borrar todo", "+": "Sumar otro importe", ",": "Coma decimal" }[k] || k}">${k}</button>`).join("") +
+  '<button type="button" class="tecla ok" id="h-ok">Guardar</button>';
+const totalMonto = () => Math.round(monto.split("+").reduce((a, t) => a + (parseImporte(t) || 0), 0) * 100) / 100;
+const pintaMonto = () => {
+  const partes = monto.split("+");
+  $("h-monto").textContent = partes.length > 1 ? totalMonto().toLocaleString("es-ES", { minimumFractionDigits: totalMonto() % 1 ? 2 : 0, maximumFractionDigits: 2 }) : monto || "0";
+  $("h-expr").textContent = partes.length > 1 ? partes.map(t => t || "0").join(" + ") + " =" : "";
+};
 $("teclado").addEventListener("click", e => {
   const k = e.target.closest(".tecla")?.dataset.k; if (!k) return;
+  const ult = monto.split("+").pop();
   if (k === "⌫") monto = monto.slice(0, -1);
-  else if (k === ",") { if (!monto.includes(",")) monto = (monto || "0") + "," }
-  else if (!(monto.includes(",") && monto.split(",")[1].length >= 2) && monto.replace(",", "").length < 8) monto = monto === "0" ? k : monto + k;
+  else if (k === "C") monto = "";
+  else if (k === "+") { if (ult && !monto.endsWith(",")) monto += "+" }
+  else if (k === ",") { if (!ult.includes(",")) monto += (ult ? "" : "0") + "," }
+  else if (!(ult.includes(",") && ult.split(",")[1].length >= 2) && ult.replace(",", "").length < 7) monto = ult === "0" ? monto.slice(0, -1) + k : monto + k;
+  if (navigator.vibrate) navigator.vibrate(8);
   pintaMonto();
 });
 document.addEventListener("keydown", e => {
   if ($("velo").hidden || e.target.tagName === "INPUT") return;
-  if (/^[0-9]$/.test(e.key) || e.key === "," || e.key === ".") { $("teclado").querySelector(`[data-k="${e.key === "." ? "," : e.key}"]`).click(); e.preventDefault() }
-  else if (e.key === "Backspace") { $("teclado").querySelector('[data-k="⌫"]').click(); e.preventDefault() }
-  else if (e.key === "Enter") $("h-ok").click();
+  const k = e.key === "." ? "," : e.key === "Backspace" ? "⌫" : e.key === "Delete" ? "C" : e.key;
+  if (/^[0-9,+]$/.test(k) || k === "⌫" || k === "C") { $("teclado").querySelector(`[data-k="${k}"]`).click(); e.preventDefault() }
+  else if (e.key === "Enter") { $("h-ok").click(); e.preventDefault() }
   else if (e.key === "Escape") cerrarHoja();
 });
 function chips(id, lista, key) { $(id).innerHTML = lista.map(v => `<button type="button" class="chip" data-k="${key}" data-v="${esc(v)}" aria-pressed="${v === sel[key]}">${esc(v)}</button>`).join("") }
@@ -432,25 +456,45 @@ function pintarHoja() {
   if (!G.cats.includes(sel.c)) sel.c = "";
   $("h-cats").innerHTML = G.cats.map(c => `<button type="button" class="cat" data-c="${esc(c)}" aria-pressed="${c === sel.c}">${ico(G.g, c)}<span>${esc(c)}</span></button>`).join("");
   chips("h-q", nombres(), "q"); chips("h-cu", hogar.cuentas, "cu"); chips("h-p", PAGOS, "p");
+  $("h-sincat").hidden = !!sel.c || !!editId;
+  $("h-ok").innerHTML = sel.c ? "Guardar" : cola.length ? "Saltar" : "Guardar<small>sin categoría</small>";
 }
 $("velo").addEventListener("click", e => {
   if (e.target === $("velo")) return cerrarHoja();
   const c = e.target.closest(".chip");
-  if (c && c.closest(".hoja")) { sel[c.dataset.k] = c.dataset.v; if (c.dataset.k === "q") { const d = defDe(c.dataset.v); if (d.cuenta_def) sel.cu = d.cuenta_def; if (d.pago_def) sel.p = d.pago_def } pintarHoja(); return }
-  const cat = e.target.closest(".cat"); if (cat) { sel.c = cat.dataset.c; pintarHoja() }
+  if (c && c.closest(".hoja")) { sel[c.dataset.k] = c.dataset.v; if (c.dataset.k === "q" && !editId) { const d = defDe(c.dataset.v); if (d.cuenta_def) sel.cu = d.cuenta_def; if (d.pago_def) sel.p = d.pago_def } pintarHoja(); return }
+  const cat = e.target.closest(".cat"); if (cat) { sel.c = sel.c === cat.dataset.c ? "" : cat.dataset.c; pintarHoja() } // otro toque la quita
 });
-function abrirHoja() { monto = ""; pintaMonto(); sel.c = ""; $("h-nota").value = ""; $("h-fecha").value = iso(new Date()); aviso("h-msg", ""); pintarHoja(); $("velo").hidden = false; document.body.style.overflow = "hidden" }
-function cerrarHoja() { $("velo").hidden = true; document.body.style.overflow = "" }
+function abrirHoja(x) {
+  editId = x ? x.id : null;
+  if (x) { selNuevo ||= { ...sel }; Object.assign(sel, { g: x.g || sel.g, c: x.c || "", q: x.q || "", p: x.p || "", cu: x.cu || "" }) }
+  monto = !x ? "" : (x.i % 1 ? x.i.toFixed(2) : String(x.i)).replace(".", ","); pintaMonto(); if (!x) sel.c = "";
+  $("h-nota").value = x ? x.n || "" : ""; $("h-fecha").value = x ? x.f : iso(new Date());
+  $("h-tit").textContent = !x ? "Nuevo gasto" : x.c ? "Cambiar gasto" : "Ponle categoría";
+  $("h-cola").textContent = colaN > 1 ? `${colaN - cola.length} de ${colaN}` : "";
+  aviso("h-msg", ""); pintarHoja(); $("velo").hidden = false; document.body.style.overflow = "hidden";
+  $("velo").querySelector(".h-cuerpo").scrollTop = 0;
+}
+function cerrarHoja() { $("velo").hidden = true; document.body.style.overflow = ""; editId = null; cola = []; colaN = 0; if (selNuevo) { Object.assign(sel, selNuevo); selNuevo = null } }
+// Repasar uno tras otro los gastos sin categoría, del más reciente al más antiguo
+function categorizarPendientes() { cola = sinCategoria().map(x => x.id); colaN = cola.length; const id = cola.shift(); if (id) abrirHoja(data.find(x => x.id === id)) }
 $("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : tab === "tab" ? abrirTarea(null) : abrirHoja());
 $("h-x").addEventListener("click", cerrarHoja);
 $("h-ok").addEventListener("click", async () => {
-  const v = parseImporte(monto);
+  const v = totalMonto();
   if (!(v > 0)) return aviso("h-msg", "Escribe el importe con el teclado.", true);
-  if (!sel.c) return aviso("h-msg", "Elige una categoría.", true);
   $("h-ok").disabled = true;
+  const fila = { fecha: $("h-fecha").value || iso(new Date()), importe: v, grupo: sel.c ? sel.g : "", categoria: sel.c, nota: $("h-nota").value.trim() || null, quien: sel.q, forma_pago: sel.p, cuenta: sel.cu || null };
   try {
-    const [r] = await store.addGastos([{ fecha: $("h-fecha").value || iso(new Date()), importe: Math.round(v * 100) / 100, grupo: sel.g, categoria: sel.c, nota: $("h-nota").value.trim() || null, quien: sel.q, forma_pago: sel.p, cuenta: sel.cu || null }]);
-    data.push(corto(r)); mesVista = ym(new Date(r.fecha + "T12:00")); cerrarHoja(); pintar();
+    if (editId) {
+      const r = corto(await store.updGasto(editId, fila)); data = data.map(x => x.id === r.id ? r : x);
+      let sig; while (cola.length && !(sig = data.find(x => x.id === cola[0] && !x.c))) cola.shift(); // por si el otro ya la ha categorizado
+      if (sig) { cola.shift(); pintar(); return abrirHoja(sig) }
+      cerrarHoja(); pintar();
+    } else {
+      const [r] = await store.addGastos([fila]);
+      data.push(corto(r)); mesVista = ym(new Date(r.fecha + "T12:00")); cerrarHoja(); pintar();
+    }
   } catch (err) { aviso("h-msg", "No se ha guardado: " + errTxt(err), true) }
   finally { $("h-ok").disabled = false }
 });

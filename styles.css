@@ -208,9 +208,25 @@ button{font:inherit;color:inherit}
 .pk{display:grid;gap:5px}
 .pk .pl{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .extra{display:grid;grid-template-columns:1fr auto;gap:8px}
-.teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-.tecla{border:0;background:var(--bg);border-radius:12px;padding:12px 0;font:500 1.25rem var(--mono);cursor:pointer}
+/* Hoja de gasto: cabecera e importe arriba, teclado abajo y siempre a la vista; lo demás se desplaza en medio */
+.hoja-g{display:flex;flex-direction:column;gap:10px;overflow:hidden;max-height:94dvh}
+.hoja-g .h-cuerpo{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;overscroll-behavior:contain;margin:0 -16px;padding:2px 16px}
+.hoja-g .ch{gap:8px}.hoja-g .ch .hint{margin-left:auto}
+.hoja-g .h-cuerpo>*,.hoja-g>*{flex-shrink:0}.hoja-g>.h-cuerpo{flex-shrink:1}
+.hoja-g .toast:empty{display:none}
+.monto{flex-wrap:wrap}
+.monto .expr{flex-basis:100%;text-align:center;font:500 .85rem var(--mono);color:var(--muted);min-height:1.1em}
+.monto .expr:empty{display:none}
+.teclado{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;flex:none;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.tecla{border:0;background:var(--bg);color:var(--fg);border-radius:14px;min-height:52px;font:500 1.5rem var(--mono);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tecla.op{font-size:1.25rem;color:var(--muted)}
 .tecla:active{background:var(--line)}
+.tecla.ok{grid-column:4;grid-row:3/5;background:var(--accent);color:var(--accent-ink);font:700 1rem var(--body);display:grid;place-content:center;gap:2px;line-height:1.15}
+.tecla.ok small{font-weight:500;font-size:.68rem;opacity:.9}
+.tecla.ok:disabled{opacity:.6}
+@media (max-height:640px){.tecla{min-height:46px}.monto .n{font-size:2.2rem}}
+.ico.sin{background:var(--line);color:var(--muted);font-size:.9rem}
+.sinc{color:var(--warn);font-weight:600}
 .guardar{width:100%;padding:14px;font-size:1rem;border-radius:14px}
 @media (prefers-reduced-motion:no-preference){.hoja{animation:sube .2s ease-out}@keyframes sube{from{transform:translateY(30px);opacity:.6}}}
 
