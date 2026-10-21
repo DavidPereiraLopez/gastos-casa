@@ -103,6 +103,15 @@
     </section>
   </main>
 
+  <!-- Tablero Kanban -->
+  <main class="vista" id="t-tab" hidden>
+    <div class="ch tab-top">
+      <div class="seg" role="group" aria-label="Qué tareas ver" id="ta-filtro"></div>
+      <button class="btn sm primary" id="ta-add" type="button">Nueva tarea</button>
+    </div>
+    <div class="tablero" id="tablero"></div>
+  </main>
+
   <!-- Presupuestos y gastos fijos -->
   <main class="vista" id="t-pres" hidden>
     <section class="card">
@@ -183,9 +192,10 @@
 <nav class="nav" id="nav" hidden aria-label="Secciones">
   <div class="in">
     <button class="tab" data-t="inicio" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Inicio</button>
-    <button class="tab" data-t="movs"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>Movimientos</button>
-    <button class="fab" id="fab" aria-label="Apuntar un gasto">+</button>
+    <button class="tab" data-t="movs"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>Gastos</button>
     <button class="tab" data-t="cal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Calendario</button>
+    <button class="fab" id="fab" aria-label="Apuntar un gasto">+</button>
+    <button class="tab" data-t="tab"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/></svg>Tablero</button>
     <button class="tab" data-t="pres"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6"/></svg>Presupuesto</button>
     <button class="tab" data-t="mas"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>Más</button>
   </div>
@@ -234,6 +244,23 @@
       <button class="btn primary full guardar" type="submit" id="e-ok">Guardar</button>
       <button class="btn danger full" type="button" id="e-del" hidden>Borrar</button>
       <p class="toast full" id="e-msg" role="status"></p>
+    </form>
+  </div>
+</div>
+<!-- Hoja para añadir o cambiar una tarea del tablero -->
+<div class="velo" id="velo-ta" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="ta-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="ta-tit">Nueva tarea</h2><button class="ib" id="ta-x" aria-label="Cerrar" type="button">✕</button></div>
+    <form class="fform" id="ta-form" novalidate>
+      <label class="full">Qué hay que hacer<input class="field" id="ta-titulo" placeholder="Ej. Pedir cita ITV, cambiar tarifa de la luz…" required></label>
+      <div class="pk full"><span class="pl">Columna</span><div class="chips" id="ta-col" role="group" aria-label="Columna"></div></div>
+      <div class="pk full"><span class="pl">Quién</span><div class="chips" id="ta-q" role="group" aria-label="Quién"></div></div>
+      <label>Para el día (opcional)<input class="field" type="date" id="ta-fecha"></label>
+      <label class="full">Nota<textarea class="field" id="ta-nota" rows="2" placeholder="Opcional"></textarea></label>
+      <button class="btn primary full guardar" type="submit" id="ta-ok">Guardar</button>
+      <button class="btn danger full" type="button" id="ta-del" hidden>Borrar</button>
+      <p class="toast full" id="ta-msg" role="status"></p>
     </form>
   </div>
 </div>
