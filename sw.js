@@ -1,6 +1,6 @@
 // Guarda la interfaz para que la app abra rápido. Los datos siempre se piden a Supabase, nunca se guardan aquí.
-const CACHE = "gastos-v9";
-const ARCHIVOS = ["./", "index.html", "styles.css?v=9", "app.js?v=9", "store.js?v=9", "config.js?v=9", "manifest.webmanifest", "icon.svg"];
+const CACHE = "gastos-v10";
+const ARCHIVOS = ["./", "index.html", "styles.css?v=10", "app.js?v=10", "store.js?v=10", "ticket.js?v=10", "config.js?v=10", "manifest.webmanifest", "icon.svg"];
 self.addEventListener("install", e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS.map(f => new Request(f, { cache: "reload" })))).then(() => self.skipWaiting())));
 self.addEventListener("activate", e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener("fetch", e => {

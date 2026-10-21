@@ -290,3 +290,14 @@ input.field[type="date"]{-webkit-appearance:none;appearance:none;display:block;m
 input.field[type="date"]::-webkit-date-and-time-value{text-align:left}
 /* En móviles, 16 px evita que el iPhone amplíe la pantalla al tocar un campo */
 @media (pointer:coarse){.field,.fform .field{font-size:16px}}
+
+/* ---------- Foto del ticket en el gasto ---------- */
+.hoja-g .ch .h-foto{white-space:nowrap}
+.h-tk{display:flex;align-items:center;gap:10px;background:var(--soft);border-radius:12px;padding:8px 10px;font-size:.84rem}
+.h-tk .h-th{border:0;padding:0;background:none;cursor:pointer;flex:none}
+.h-tk img{width:44px;height:44px;object-fit:cover;border-radius:8px;display:block}
+.h-tk-t{flex:1;min-width:0;line-height:1.35}
+.h-tk-t .btn{margin-top:6px;display:inline-block}
+.mv .clip{font-size:.8rem}
+#velo-foto{z-index:40}
+#velo-foto img{max-height:75vh;object-fit:contain;justify-self:center}

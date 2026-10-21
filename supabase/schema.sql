@@ -238,3 +238,6 @@ alter table hogares add column if not exists personas jsonb not null default '[]
 alter table tareas add column if not exists repetir text not null default 'no' check (repetir in ('no', 'diario', 'semanal', 'mensual', 'anual'));
 alter table tareas add column if not exists cada smallint not null default 1 check (cada between 1 and 52);
 alter table tareas add column if not exists hasta date; -- último día en que se repite (vacío = sin fin)
+
+-- Foto del ticket en cada gasto (también en fotos-gastos.sql) ----------------------------------
+alter table gastos add column if not exists archivo text; -- ruta en Storage: <hogar_id>/<uuid>.jpg

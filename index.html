@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=9">
+<link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
 <!--APP-START-->
@@ -213,8 +213,10 @@
 <div class="velo" id="velo" hidden>
   <div class="hoja hoja-g" role="dialog" aria-modal="true" aria-labelledby="h-tit">
     <div class="asa"></div>
-    <div class="ch"><h2 id="h-tit">Nuevo gasto</h2><span class="hint" id="h-cola"></span><button class="ib" id="h-x" aria-label="Cerrar">✕</button></div>
+    <div class="ch"><h2 id="h-tit">Nuevo gasto</h2><span class="hint" id="h-cola"></span><button class="btn sm h-foto" id="h-foto" type="button">📷 Ticket</button><button class="ib" id="h-x" aria-label="Cerrar">✕</button></div>
+    <input type="file" id="h-file" accept="image/*" hidden>
     <div class="monto" aria-live="polite"><span class="expr" id="h-expr"></span><span class="n" id="h-monto">0</span><span class="e">€</span></div>
+    <div class="h-tk" id="h-tk" hidden><button type="button" class="h-th" id="h-th" aria-label="Ver la foto del ticket"><img id="h-thumb" alt=""></button><span class="h-tk-t" id="h-tk-t" role="status"></span><button class="ib" id="h-tk-x" type="button" aria-label="Quitar la foto">✕</button></div>
     <div class="h-cuerpo">
       <div class="grupos" id="h-grupos" role="group" aria-label="Grupo"></div>
       <div class="cats" id="h-cats" role="group" aria-label="Categoría"></div>
@@ -226,6 +228,13 @@
     </div>
     <p class="toast" id="h-msg" role="status"></p>
     <div class="teclado" id="teclado"></div>
+  </div>
+</div>
+<!-- Foto del ticket de un gasto -->
+<div class="velo" id="velo-foto" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="vf-t">
+    <div class="ch"><h2 id="vf-t">Ticket</h2><button class="ib" id="vf-x" aria-label="Cerrar" type="button">✕</button></div>
+    <div class="visor" id="vf-c"></div>
   </div>
 </div>
 <!-- Hoja para añadir o cambiar algo del calendario -->
@@ -285,8 +294,9 @@
 </div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=9"></script>
-<script src="store.js?v=9"></script>
-<script src="app.js?v=9"></script>
+<script src="config.js?v=10"></script>
+<script src="store.js?v=10"></script>
+<script src="ticket.js?v=10"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
