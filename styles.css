@@ -327,3 +327,8 @@ input.field[type="date"]::-webkit-date-and-time-value{text-align:left}
 .mv .a.mas{color:var(--ok)}
 .chip.comun{border-color:var(--accent)}
 .mo-imp{font:500 1.4rem var(--mono)}
+/* Arrastrar tarjetas con el dedo */
+.ta{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.ta.fantasma{position:fixed;left:0;top:0;z-index:40;margin:0;pointer-events:none;box-shadow:0 10px 26px rgb(0 0 0 / .25);background:var(--surface);opacity:.95}
+.ta.antes{box-shadow:0 -3px 0 var(--accent)}
+body.arrastrando .tablero{scroll-snap-type:none}
