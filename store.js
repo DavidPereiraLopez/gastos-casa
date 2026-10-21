@@ -16,6 +16,11 @@
     const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
     let canal = null;
     const ok = r => { if (r.error) throw r.error; return r.data };
+    const subir = async (file, hogarId, ext) => {
+      const ruta = `${hogarId}/${crypto.randomUUID()}.${(ext || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+      ok(await sb.storage.from("tickets").upload(ruta, file, { contentType: file.type || undefined }));
+      return ruta;
+    };
     return {
       demo: false,
       onAuth: fn => sb.auth.onAuthStateChange((ev) => { if (["SIGNED_IN", "SIGNED_OUT", "INITIAL_SESSION"].includes(ev)) fn() }),
@@ -49,14 +54,12 @@
       addRecurrente: async f => ok(await sb.from("recurrentes").insert(f).select().single()),
       delRecurrente: async id => ok(await sb.from("recurrentes").delete().eq("id", id)),
       addTicket: async (fila, file, hogarId) => {
-        if (file) {
-          const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-          const ruta = `${hogarId}/${crypto.randomUUID()}.${ext}`;
-          ok(await sb.storage.from("tickets").upload(ruta, file, { contentType: file.type || undefined }));
-          fila.archivo = ruta;
-        }
+        if (file) fila.archivo = await subir(file, hogarId, file.name.split(".").pop());
         return ok(await sb.from("tickets").insert(fila).select().single());
       },
+      // foto del ticket de un gasto: va al mismo almacén privado que los tickets con garantía
+      subirFoto: (blob, hogarId) => subir(blob, hogarId, "jpg"),
+      borrarFoto: async ruta => { if (ruta) await sb.storage.from("tickets").remove([ruta]) },
       delTicket: async t => { if (t.archivo) await sb.storage.from("tickets").remove([t.archivo]); ok(await sb.from("tickets").delete().eq("id", t.id)) },
       urlTicket: async t => ok(await sb.storage.from("tickets").createSignedUrl(t.archivo, 300)).signedUrl, // enlace de 5 minutos
       addEvento: async f => ok(await sb.from("eventos").insert(f).select().single()),
@@ -173,6 +176,8 @@
       addRecurrente: async f => { const r = { id: uid(), activo: true, ...f }; db.recurrentes.push(r); save(); return clone(r) },
       delRecurrente: async id => { db.recurrentes = db.recurrentes.filter(r => r.id !== id); save() },
       addTicket: async (fila, file) => { const t = { id: uid(), ...fila }; if (file) { t.archivo = "demo/" + t.id + (file.type === "application/pdf" ? ".pdf" : ".jpg"); archivos[t.archivo] = URL.createObjectURL(file) } db.tickets.push(t); save(); return clone(t) },
+      subirFoto: async blob => { const ruta = "demo/" + uid() + ".jpg"; archivos[ruta] = URL.createObjectURL(blob); return ruta },
+      borrarFoto: async () => { },
       delTicket: async t => { db.tickets = db.tickets.filter(x => x.id !== t.id); save() },
       addEvento: async f => { const e = { id: uid(), repetir: "no", cada: 1, dias_semana: [], excepciones: [], serie_id: null, ...f }; db.eventos.push(e); save(); return clone(e) },
       updEvento: async (id, c) => { const e = db.eventos.find(x => x.id === id); Object.assign(e, c); save(); return clone(e) },
