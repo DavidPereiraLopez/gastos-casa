@@ -1,6 +1,6 @@
 // Guarda la interfaz para que la app abra rápido. Los datos siempre se piden a Supabase, nunca se guardan aquí.
-const CACHE = "gastos-v12";
-const ARCHIVOS = ["./", "index.html", "styles.css?v=12", "app.js?v=12", "store.js?v=12", "config.js?v=12", "manifest.webmanifest", "icon.svg"];
+const CACHE = "gastos-v14";
+const ARCHIVOS = ["./", "index.html", "styles.css?v=14", "app.js?v=14", "store.js?v=14", "config.js?v=14", "ticket.js?v=14", "tema.js?v=14", "manifest.webmanifest", "icon.svg"];
 self.addEventListener("install", e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS.map(f => new Request(f, { cache: "reload" })))).then(() => self.skipWaiting())));
 self.addEventListener("activate", e => e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 // Notificaciones push de las tareas (las envía supabase/functions/avisos-tareas)

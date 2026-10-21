@@ -10,6 +10,8 @@ App web instalable (PWA) para apuntar y analizar los gastos de casa entre los do
 - `supabase/calendario.sql`: la tabla del calendario compartido, para añadirla a una base que ya tenía `schema.sql`.
 - `supabase/tablero.sql`: la tabla del tablero Kanban (tareas por hacer, haciendo y hechas), para añadirla a una base que ya tenía `schema.sql`.
 - `supabase/tareas-repetir.sql`: tareas que se repiten y personas del hogar que aún no tienen cuenta.
+- `supabase/fotos-gastos.sql`: guardar la foto del ticket en cada gasto.
+- `ticket.js`: lee la foto de un ticket en el propio móvil (Tesseract.js) para rellenar importe, fecha y tienda.
 - `supabase/huchas.sql`: huchas de efectivo y cuentas comunes con saldo (aportaciones y traspasos entre cuentas, que no cuentan como gasto).
 - `supabase/avisos-push.sql`, `supabase/functions/avisos-tareas` y `supabase/avisos-cron.sql`: notificaciones push cuando a una tarea le quedan 3 días o 1 día. La primera vez, la función crea sus claves VAPID y las guarda en Supabase Vault; no hay que configurar secretos.
 - `sw.js`, `manifest.webmanifest`, iconos: para instalarla en el móvil.
@@ -28,6 +30,7 @@ App web instalable (PWA) para apuntar y analizar los gastos de casa entre los do
 - Inicio de sesión con correo y contraseña (Supabase Auth).
 - Row Level Security en todas las tablas y en las fotos de tickets: nadie fuera del hogar puede leer ni escribir.
 - Las fotos de tickets están en un almacén privado y se abren con enlaces que caducan a los 5 minutos.
+- Los tickets se leen en el propio móvil: la foto no se manda a ningún servicio externo para leerla.
 - La app no guarda datos de bancos ni contraseñas bancarias. Los movimientos del banco entran por CSV.
 
 ## Límites del plan gratuito

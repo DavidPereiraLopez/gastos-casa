@@ -185,6 +185,14 @@ button{font:inherit;color:inherit;touch-action:manipulation;-webkit-user-select:
 .def{display:grid;grid-template-columns:6rem 1fr 1fr;gap:6px;align-items:center;font-size:.86rem}
 .def select{min-width:0}
 @media (max-width:420px){.def{grid-template-columns:1fr 1fr}.def span{grid-column:1/-1}}
+#ap-modo{justify-self:start}
+.colores{display:flex;flex-wrap:wrap;gap:10px}
+.color{position:relative;width:38px;height:38px;border-radius:50%;border:0;padding:0;cursor:pointer;background:var(--cl);box-shadow:0 0 0 1px var(--line)}
+:root[data-theme="dark"] .color:not(.otro){background:var(--os)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .color:not(.otro){background:var(--os)}}
+.color[aria-pressed="true"]{box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--fg)}
+.color.otro{display:grid;place-items:center;background:var(--cl,conic-gradient(#e34948,#eda100,#1baf7a,#2a78d6,#6250d6,#e34948));color:#fff;font-weight:700;font-size:1.1rem;text-shadow:0 1px 2px rgb(0 0 0 / .5)}
+.color.otro input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:0;padding:0}
 .toast{font-size:.85rem;color:var(--ok);margin:0;min-height:1.2em}
 .toast.e{color:var(--bad)}
 
@@ -290,6 +298,17 @@ input.field[type="date"]{-webkit-appearance:none;appearance:none;display:block;m
 input.field[type="date"]::-webkit-date-and-time-value{text-align:left}
 /* En móviles, 16 px evita que el iPhone amplíe la pantalla al tocar un campo */
 @media (pointer:coarse){.field,.fform .field{font-size:16px}}
+
+/* ---------- Foto del ticket en el gasto ---------- */
+.hoja-g .ch .h-foto{white-space:nowrap}
+.h-tk{display:flex;align-items:center;gap:10px;background:var(--soft);border-radius:12px;padding:8px 10px;font-size:.84rem}
+.h-tk .h-th{border:0;padding:0;background:none;cursor:pointer;flex:none}
+.h-tk img{width:44px;height:44px;object-fit:cover;border-radius:8px;display:block}
+.h-tk-t{flex:1;min-width:0;line-height:1.35}
+.h-tk-t .btn{margin-top:6px;display:inline-block}
+.mv .clip{font-size:.8rem}
+#velo-foto{z-index:40}
+#velo-foto img{max-height:75vh;object-fit:contain;justify-self:center}
 
 /* Huchas y cuentas comunes */
 .bolsas{display:grid;gap:10px}

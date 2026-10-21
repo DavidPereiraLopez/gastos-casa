@@ -304,6 +304,9 @@ $$;
 revoke execute on function vapid_publica() from public, anon;
 grant execute on function vapid_publica() to authenticated;
 
+-- Foto del ticket en cada gasto (también en fotos-gastos.sql) ----------------------------------
+alter table gastos add column if not exists archivo text; -- ruta en Storage: <hogar_id>/<uuid>.jpg
+
 -- Huchas de efectivo y cuentas comunes con saldo (también en huchas.sql) ----------------------
 -- Cuentas de las que la app lleva el saldo: { "Cuenta VADA": { "desde": "2026-10-21" }, "Efectivo VADA": { ... } }
 -- Desde ese día, los gastos pagados desde la cuenta restan de su saldo.

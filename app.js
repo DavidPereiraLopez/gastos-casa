@@ -36,9 +36,10 @@ const errTxt = e => {
   if (/Email not confirmed/i.test(m)) return "Confirma primero tu correo con el enlace que te hemos enviado.";
   if (/already registered/i.test(m)) return "Ese correo ya tiene cuenta. Entra con tu contraseña.";
   if (/Failed to fetch|NetworkError/i.test(m)) return "Sin conexión. Revisa internet y vuelve a intentarlo.";
+  if (/archivo.*gastos|gastos.*archivo/i.test(m)) return "Falta activar las fotos de tickets en la base de datos (supabase/fotos-gastos.sql).";
   return m;
 };
-const corto = r => ({ id: r.id, f: r.fecha, i: Number(r.importe), g: r.grupo, c: r.categoria, n: r.nota, q: r.quien, p: r.forma_pago, cu: r.cuenta, rid: r.recurrente_id });
+const corto = r => ({ id: r.id, f: r.fecha, i: Number(r.importe), g: r.grupo, c: r.categoria, n: r.nota, q: r.quien, p: r.forma_pago, cu: r.cuenta, rid: r.recurrente_id, a: r.archivo });
 const colorG = g => { const i = hogar.grupos.findIndex(x => x.g === g); return `var(--c${(i < 0 ? 7 : i % 8) + 1})` };
 const sigla = c => { const p = String(c).replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(w => w.length > 2 || /^\p{Lu}/u.test(w)); return ((p[0] || c)[0] + (p[1] ? p[1][0] : (p[0] || c)[1] || "")).toUpperCase() };
 const ico = (g, c) => c ? `<span class="ico" style="background:${colorG(g)}" aria-hidden="true">${esc(sigla(c))}</span>` : '<span class="ico sin" aria-hidden="true">?</span>';
@@ -54,6 +55,13 @@ function parseImporte(s) { s = String(s).trim().replace(/[€\s]/g, ""); if (/,\
 function categorizar(t) {
   for (const [r, g, c] of RULES) { const G = hogar.grupos.find(x => x.g === g); if (r.test(t) && G && G.cats.includes(c)) return { g, c } }
   const o = hogar.grupos.find(x => x.g === "OTROS") || hogar.grupos[hogar.grupos.length - 1]; return { g: o.g, c: o.cats[0] || "Otros" }
+}
+// Categoría para una tienda: la que se usó la última vez con esa nota, o la de las reglas; null si no hay pista
+function sugerirCat(t) {
+  const k = t.trim().toLowerCase(), prev = data.filter(x => x.c && (x.n || "").trim().toLowerCase() === k).sort((a, b) => b.f.localeCompare(a.f))[0];
+  if (prev && hogar.grupos.some(G => G.g === prev.g && G.cats.includes(prev.c))) return { g: prev.g, c: prev.c };
+  for (const [r, g, c] of RULES) { const G = hogar.grupos.find(x => x.g === g); if (r.test(t + " ") && G && G.cats.includes(c)) return { g, c } }
+  return null;
 }
 // Botón de borrar en dos toques (confirm() no funciona en todas las apps instaladas)
 function dosToques(btn, accion) { if (btn.dataset.ok) return accion(); btn.dataset.ok = 1; const t = btn.textContent; btn.textContent = "¿Seguro? Toca otra vez"; setTimeout(() => { delete btn.dataset.ok; btn.textContent = t }, 4000) }
@@ -280,18 +288,19 @@ function pintarMovs() {
     (sinC ? '<button class="btn primary sm" type="button" data-accion="categorizar">Ponerles categoría uno a uno</button>' : "") + Object.entries(dias).map(([f, xs]) => {
     const d = new Date(f + "T12:00").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
     return `<div class="dia"><span>${d}</span><span>${fmt(xs.reduce((a, x) => a + x.i, 0))}</span></div><ul class="movs">` + xs.map(x =>
-      `<li class="mv" data-id="${x.id}">${ico(x.g, x.c)}<span><span class="t">${esc(x.n || x.c || SIN)}</span><br><span class="s">${x.c ? `${esc(x.g)} › ${esc(x.c)}` : `<b class="sinc">${SIN}</b>`} · ${esc(x.q || "")}${x.cu ? " · " + esc(x.cu) : ""}${x.p ? " · " + esc(x.p) : ""}${x.rid ? " · fijo" : ""}</span></span><span class="a">−${fmt(x.i)}</span></li>`).join("") + "</ul>"
+      `<li class="mv" data-id="${x.id}">${ico(x.g, x.c)}<span><span class="t">${esc(x.n || x.c || SIN)}</span><br><span class="s">${x.c ? `${esc(x.g)} › ${esc(x.c)}` : `<b class="sinc">${SIN}</b>`} · ${esc(x.q || "")}${x.cu ? " · " + esc(x.cu) : ""}${x.p ? " · " + esc(x.p) : ""}${x.rid ? " · fijo" : ""}${x.a ? ' · <span class="clip" title="Con foto del ticket">📎 ticket</span>' : ""}</span></span><span class="a">−${fmt(x.i)}</span></li>`).join("") + "</ul>"
   }).join("") : `<div class="vacio">${sinC ? "Todos los gastos tienen categoría." : "No hay movimientos con estos filtros. Toca + para apuntar uno."}</div>`;
 }
 $("movs").addEventListener("click", async e => {
   if (e.target.closest('[data-accion="categorizar"]')) return categorizarPendientes();
   const ed = e.target.closest("[data-ed]"); if (ed) return abrirHoja(data.find(x => x.id === ed.dataset.ed));
   const del = e.target.closest("[data-del]");
-  if (del) return dosToques(del, async () => { try { await store.delGasto(del.dataset.del); data = data.filter(x => x.id !== del.dataset.del); pintar() } catch (err) { del.textContent = errTxt(err) } });
+  if (del) return dosToques(del, async () => { const x = data.find(g => g.id === del.dataset.del); try { await store.delGasto(x.id); data = data.filter(g => g.id !== x.id); store.borrarFoto(x.a).catch(() => { }); pintar() } catch (err) { del.textContent = errTxt(err) } });
+  const vf = e.target.closest("[data-vf]"); if (vf) { const x = data.find(g => g.id === vf.dataset.vf); return verFoto(x.a, x.n || x.c || "Ticket") }
   const li = e.target.closest(".mv"); if (!li) return;
   const abierto = li.querySelector(".acc"); document.querySelectorAll(".mv .acc").forEach(a => a.remove());
   const x = data.find(g => g.id === li.dataset.id);
-  if (!abierto) li.insertAdjacentHTML("beforeend", `<span class="acc"><button class="btn sm${x.c ? "" : " primary"}" data-ed="${x.id}">${x.c ? "Cambiar" : "Ponle categoría"}</button><button class="btn sm danger" data-del="${x.id}">Borrar</button></span>`);
+  if (!abierto) li.insertAdjacentHTML("beforeend", `<span class="acc"><button class="btn sm${x.c ? "" : " primary"}" data-ed="${x.id}">${x.c ? "Cambiar" : "Ponle categoría"}</button>${x.a ? `<button class="btn sm" data-vf="${x.id}">Ver ticket</button>` : ""}<button class="btn sm danger" data-del="${x.id}">Borrar</button></span>`);
 });
 
 // ---------------- Presupuestos y gastos fijos ----------------
@@ -421,6 +430,19 @@ $("pe-form").addEventListener("submit", e => {
 });
 $("personas").addEventListener("click", e => { const b = e.target.closest("[data-pe]"); if (b) dosToques(b, () => guardarPersonas(hogar.personas.filter(p => p.nombre !== b.dataset.pe), "Quitada.")) });
 
+// ---------------- Apariencia (tema.js) ----------------
+const NOM_COLOR = { verde: "Verde", azul: "Azul", morado: "Morado", rosa: "Rosa", naranja: "Naranja", rojo: "Rojo", turquesa: "Turquesa", grafito: "Grafito" };
+function pintarApariencia() {
+  const t = tema.leer(), modo = t.modo || "auto", color = t.color || "verde", propio = !tema.COLORES[color];
+  $("ap-modo").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === modo));
+  $("ap-color").innerHTML = Object.entries(tema.COLORES).map(([k, [cl, os]]) => `<button type="button" class="color" data-c="${k}" style="--cl:${cl};--os:${os}" aria-pressed="${k === color}" aria-label="${NOM_COLOR[k]}" title="${NOM_COLOR[k]}"></button>`).join("")
+    + `<label class="color otro" title="Otro color" aria-pressed="${propio}" style="${propio ? `--cl:${color};--os:${color}` : ""}"><input type="color" id="ap-otro" value="${propio ? color : "#1f7a55"}" aria-label="Otro color"><span aria-hidden="true">+</span></label>`;
+}
+$("ap-modo").addEventListener("click", e => { const b = e.target.closest("[data-m]"); if (b) { tema.guardar({ modo: b.dataset.m }); pintarApariencia() } });
+$("ap-color").addEventListener("click", e => { const b = e.target.closest("[data-c]"); if (b) { tema.guardar({ color: b.dataset.c }); pintarApariencia() } });
+$("ap-color").addEventListener("change", e => { if (e.target.id === "ap-otro") { tema.guardar({ color: e.target.value }); pintarApariencia() } });
+pintarApariencia();
+
 // ---------------- Notificaciones push ----------------
 // Cada mañana el servidor avisa de las tareas que vencen dentro de 3 días o mañana (supabase/functions/avisos-tareas).
 const b64u = s => { const b = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)) };
@@ -511,35 +533,99 @@ function abrirHoja(x) {
   $("h-tit").textContent = !x ? "Nuevo gasto" : x.c ? "Cambiar gasto" : "Ponle categoría";
   $("h-cola").textContent = colaN > 1 ? `${colaN - cola.length} de ${colaN}` : "";
   $("h-del").hidden = !x; $("h-del").textContent = "Borrar"; delete $("h-del").dataset.ok;
-  aviso("h-msg", ""); pintarHoja(); $("velo").hidden = false; document.body.style.overflow = "hidden";
+  aviso("h-msg", ""); pintarHoja(); pintarFoto(); $("velo").hidden = false; document.body.style.overflow = "hidden";
   $("velo").querySelector(".h-cuerpo").scrollTop = 0;
 }
-function cerrarHoja() { $("velo").hidden = true; document.body.style.overflow = ""; editId = null; cola = []; colaN = 0; if (selNuevo) { Object.assign(sel, selNuevo); selNuevo = null } }
+function cerrarHoja() { quitarFoto(); $("velo").hidden = true; document.body.style.overflow = ""; editId = null; cola = []; colaN = 0; if (selNuevo) { Object.assign(sel, selNuevo); selNuevo = null } }
 // Repasar uno tras otro los gastos sin categoría, del más reciente al más antiguo
 function categorizarPendientes() { cola = sinCategoria().map(x => x.id); colaN = cola.length; const id = cola.shift(); if (id) abrirHoja(data.find(x => x.id === id)) }
 $("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : tab === "tab" ? abrirTarea(null) : abrirHoja());
 $("h-x").addEventListener("click", cerrarHoja);
 $("h-del").addEventListener("click", () => dosToques($("h-del"), async () => {
-  try { await store.delGasto(editId); data = data.filter(x => x.id !== editId); cerrarHoja(); pintar() } catch (err) { aviso("h-msg", "No se ha borrado: " + errTxt(err), true) }
+  const x = data.find(g => g.id === editId);
+  try { await store.delGasto(x.id); data = data.filter(g => g.id !== x.id); store.borrarFoto(x.a).catch(() => { }); cerrarHoja(); pintar() } catch (err) { aviso("h-msg", "No se ha borrado: " + errTxt(err), true) }
 }));
 $("h-ok").addEventListener("click", async () => {
   const v = totalMonto();
   if (!(v > 0)) return aviso("h-msg", "Escribe el importe con el teclado.", true);
   $("h-ok").disabled = true;
   const fila = { fecha: $("h-fecha").value || iso(new Date()), importe: v, grupo: sel.c ? sel.g : "", categoria: sel.c, nota: $("h-nota").value.trim() || null, quien: sel.q, forma_pago: sel.p, cuenta: sel.cu || null };
+  const antes = editId && data.find(x => x.id === editId);
+  try {
+    if (foto) { aviso("h-msg", "Subiendo la foto del ticket…"); fila.archivo = await store.subirFoto(foto.blob, hogar.id) }
+  } catch (err) { $("h-ok").disabled = false; return aviso("h-msg", "No se ha subido la foto: " + errTxt(err), true) }
   try {
     if (editId) {
       const r = corto(await store.updGasto(editId, fila)); data = data.map(x => x.id === r.id ? r : x);
+      if (fila.archivo && antes && antes.a) store.borrarFoto(antes.a).catch(() => { }); // la foto nueva sustituye a la anterior
+      quitarFoto();
       let sig; while (cola.length && !(sig = data.find(x => x.id === cola[0] && !x.c))) cola.shift(); // por si el otro ya la ha categorizado
       if (sig) { cola.shift(); pintar(); return abrirHoja(sig) }
       cerrarHoja(); pintar();
     } else {
-      const [r] = await store.addGastos([fila]);
+      const [r] = await store.addGastos([fila]); quitarFoto();
       data.push(corto(r)); mesVista = ym(new Date(r.fecha + "T12:00")); cerrarHoja(); pintar();
     }
-  } catch (err) { aviso("h-msg", "No se ha guardado: " + errTxt(err), true) }
+  } catch (err) { if (fila.archivo) store.borrarFoto(fila.archivo).catch(() => { }); aviso("h-msg", "No se ha guardado: " + errTxt(err), true) }
   finally { $("h-ok").disabled = false }
 });
+
+// ---------------- Foto del ticket ----------------
+// Se lee en el propio móvil (ticket.js) para rellenar importe, fecha, tienda y categoría; la foto se guarda con el gasto.
+// Si ya hay un gasto apuntado con ese importe y fecha parecida, se ofrece ponerle la foto a ese en vez de apuntarlo dos veces.
+let foto = null; // { blob, url } de la foto nueva, que se sube al guardar
+function quitarFoto() { if (foto) URL.revokeObjectURL(foto.url); foto = null }
+function pintarFoto(txt) {
+  const x = editId && data.find(g => g.id === editId);
+  $("h-tk").hidden = !foto && !(x && x.a);
+  $("h-th").hidden = $("h-tk-x").hidden = !foto; if (foto) $("h-thumb").src = foto.url;
+  $("h-foto").textContent = foto || (x && x.a) ? "📷 Otra foto" : "📷 Ticket";
+  if (txt !== undefined) $("h-tk-t").innerHTML = txt;
+  else if (!foto && x && x.a) $("h-tk-t").innerHTML = '📎 Este gasto tiene la foto del ticket. <button class="link" type="button" data-vf>Ver</button>';
+}
+async function verFoto(ruta, titulo, url) {
+  $("vf-t").textContent = titulo; $("vf-c").innerHTML = '<p class="hint">Cargando…</p>'; $("velo-foto").hidden = false;
+  try { $("vf-c").innerHTML = `<img src="${esc(url || await store.urlTicket({ archivo: ruta }))}" alt="Foto del ticket">` } catch (err) { $("vf-c").innerHTML = `<p class="hint">${esc(errTxt(err))}</p>` }
+}
+$("vf-x").addEventListener("click", () => { $("velo-foto").hidden = true });
+$("velo-foto").addEventListener("click", e => { if (e.target === $("velo-foto")) $("velo-foto").hidden = true });
+$("h-foto").addEventListener("click", () => $("h-file").click());
+$("h-th").addEventListener("click", () => foto && verFoto(null, "Ticket", foto.url));
+$("h-tk-x").addEventListener("click", () => { quitarFoto(); pintarFoto() });
+$("h-tk").addEventListener("click", e => {
+  if (e.target.closest("[data-vf]")) { const x = data.find(g => g.id === editId); if (x && x.a) verFoto(x.a, x.n || x.c || "Ticket") }
+  const u = e.target.closest("[data-unir]"); if (!u) return;
+  const f = foto, nota = $("h-nota").value, s = sel.c && { g: sel.g, c: sel.c };
+  foto = null; abrirHoja(data.find(x => x.id === u.dataset.unir)); foto = f;
+  if (!sel.c && s) { sel.g = s.g; sel.c = s.c; pintarHoja() } // si estaba sin categoría, se queda con la que salió del ticket
+  if (!$("h-nota").value) $("h-nota").value = nota;
+  pintarFoto("Toca <b>Guardar</b> y la foto quedará en este gasto.");
+});
+$("h-file").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  quitarFoto(); aviso("h-msg", "");
+  let blob; try { blob = await ticket.reducirFoto(f) } catch (err) { return aviso("h-msg", errTxt(err), true) }
+  const mia = foto = { blob, url: URL.createObjectURL(blob) };
+  if (editId) return pintarFoto("La foto se guardará con este gasto al tocar <b>Guardar</b>.");
+  pintarFoto("Leyendo el ticket… La primera vez tarda un poco más.");
+  try {
+    const texto = await ticket.leerFoto(blob, p => { if (foto === mia) $("h-tk-t").textContent = `Leyendo el ticket… ${Math.round(p * 100)} %` });
+    if (foto === mia) rellenar(ticket.analizarTicket(texto));
+  } catch (err) { if (foto === mia) pintarFoto(`No he podido leerlo (${esc(errTxt(err))}). Apunta el importe a mano; la foto se guardará con el gasto.`) }
+});
+function rellenar(t) {
+  const leido = [], aviso2 = [];
+  if (t.importe) { if (!totalMonto()) { monto = (t.importe % 1 ? t.importe.toFixed(2) : String(t.importe)).replace(".", ","); pintaMonto(); leido.push(fmt(t.importe)) } else if (Math.abs(totalMonto() - t.importe) > .005) aviso2.push(`en el ticket pone ${fmt(t.importe)}`) }
+  if (t.fecha) { $("h-fecha").value = t.fecha; leido.push(fechaCorta(t.fecha)) }
+  if (t.tienda) { if (!$("h-nota").value.trim()) $("h-nota").value = t.tienda; leido.push(esc(t.tienda)) }
+  const s = !sel.c && sugerirCat($("h-nota").value || t.tienda || ""); if (s) { sel.g = s.g; sel.c = s.c; pintarHoja(); leido.push(esc(s.c)) }
+  let h = leido.length ? `Leído: ${leido.join(" · ")}. Revísalo y guarda.` : "No he encontrado el importe. Escríbelo a mano; la foto se guardará con el gasto.";
+  if (aviso2.length) h += ` Ojo: ${aviso2.join(", ")}.`;
+  const v = totalMonto(), f = $("h-fecha").value;
+  const igual = v > 0 && data.filter(x => !x.a && Math.abs(x.i - v) < .005 && Math.abs(diasEntre(x.f, f)) <= 3).sort((a, b) => Math.abs(diasEntre(a.f, f)) - Math.abs(diasEntre(b.f, f)))[0];
+  if (igual) h += `<br>¿Es «${esc(igual.n || igual.c || SIN)}» del ${fechaCorta(igual.f)} (${fmt(igual.i)}), que ya está apuntado? <button class="btn sm primary" type="button" data-unir="${igual.id}">Sí, ponle la foto a ese</button>`;
+  pintarFoto(h);
+}
 
 // ---------------- Calendario compartido ----------------
 // Cada evento se guarda una vez; sus repeticiones se calculan aquí. Un día cambiado aparte es una copia con serie_id
