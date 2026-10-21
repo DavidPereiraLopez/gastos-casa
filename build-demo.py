@@ -10,6 +10,9 @@ out = f"""<title>Gastos de Casa</title>
 <style>
 {(d/'styles.css').read_text()}
 </style>
+<script>
+{(d/'tema.js').read_text()}
+</script>
 {body}
 <script>
 {(d/'store.js').read_text()}

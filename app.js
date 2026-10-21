@@ -417,6 +417,19 @@ $("pe-form").addEventListener("submit", e => {
 });
 $("personas").addEventListener("click", e => { const b = e.target.closest("[data-pe]"); if (b) dosToques(b, () => guardarPersonas(hogar.personas.filter(p => p.nombre !== b.dataset.pe), "Quitada.")) });
 
+// ---------------- Apariencia (tema.js) ----------------
+const NOM_COLOR = { verde: "Verde", azul: "Azul", morado: "Morado", rosa: "Rosa", naranja: "Naranja", rojo: "Rojo", turquesa: "Turquesa", grafito: "Grafito" };
+function pintarApariencia() {
+  const t = tema.leer(), modo = t.modo || "auto", color = t.color || "verde", propio = !tema.COLORES[color];
+  $("ap-modo").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === modo));
+  $("ap-color").innerHTML = Object.entries(tema.COLORES).map(([k, [cl, os]]) => `<button type="button" class="color" data-c="${k}" style="--cl:${cl};--os:${os}" aria-pressed="${k === color}" aria-label="${NOM_COLOR[k]}" title="${NOM_COLOR[k]}"></button>`).join("")
+    + `<label class="color otro" title="Otro color" aria-pressed="${propio}" style="${propio ? `--cl:${color};--os:${color}` : ""}"><input type="color" id="ap-otro" value="${propio ? color : "#1f7a55"}" aria-label="Otro color"><span aria-hidden="true">+</span></label>`;
+}
+$("ap-modo").addEventListener("click", e => { const b = e.target.closest("[data-m]"); if (b) { tema.guardar({ modo: b.dataset.m }); pintarApariencia() } });
+$("ap-color").addEventListener("click", e => { const b = e.target.closest("[data-c]"); if (b) { tema.guardar({ color: b.dataset.c }); pintarApariencia() } });
+$("ap-color").addEventListener("change", e => { if (e.target.id === "ap-otro") { tema.guardar({ color: e.target.value }); pintarApariencia() } });
+pintarApariencia();
+
 // ---------------- Notificaciones push ----------------
 // Cada mañana el servidor avisa de las tareas que vencen dentro de 3 días o mañana (supabase/functions/avisos-tareas).
 const b64u = s => { const b = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)) };
