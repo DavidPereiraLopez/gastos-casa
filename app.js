@@ -668,7 +668,7 @@ const UNI_TA = { ...UNI, anual: ["año", "años"] };
 function textoRepTa(t) {
   if (!t.repetir || t.repetir === "no") return "";
   const n = t.cada || 1, u = UNI_TA[t.repetir];
-  return (n === 1 ? `Cada ${u[0]}` : `Cada ${n} ${u[1]}`) + (t.hasta ? ` hasta el ${fechaCorta(t.hasta)}` : "");
+  return (n === 1 ? `Cada ${u[0]}` : `Cada ${n} ${u[1]}`) + (t.hasta ? ` hasta el ${fechaCorta(t.hasta)}` : ", sin fin");
 }
 // siguiente fecha de una tarea que se repite, a partir de la que tenía (y nunca antes de hoy)
 function siguienteFecha(t) {
@@ -749,13 +749,15 @@ $("tablero").addEventListener("drop", e => {
 });
 
 // Hoja de la tarea
-const ft = { col: "pendiente", q: "", rep: "no" };
+const ft = { col: "pendiente", q: "", rep: "no", fin: "nunca" };
 let tareaEd = null;
 function chipsTa() {
   $("ta-col").innerHTML = COLS.map(([v, l]) => `<button type="button" class="chip" data-k="col" data-v="${v}" aria-pressed="${ft.col === v}">${l}</button>`).join("");
   $("ta-rep").innerHTML = REPS_TA.map(([v, l]) => `<button type="button" class="chip" data-k="rep" data-v="${v}" aria-pressed="${ft.rep === v}">${l}</button>`).join("");
   $("ta-rep-op").hidden = ft.rep === "no";
   if (UNI_TA[ft.rep]) $("ta-cada-u").textContent = UNI_TA[ft.rep][+$("ta-cada").value === 1 ? 0 : 1];
+  $("ta-fin").innerHTML = [["nunca", "Sin fin"], ["dia", "Hasta un día"]].map(([v, l]) => `<button type="button" class="chip" data-k="fin" data-v="${v}" aria-pressed="${ft.fin === v}">${l}</button>`).join("");
+  $("ta-hasta-w").hidden = ft.fin !== "dia";
   $("ta-hasta").min = $("ta-fecha").value;
   $("ta-q").innerHTML = ["", ...quienes()].map(q => `<button type="button" class="chip" data-k="q" data-v="${esc(q)}" aria-pressed="${ft.q === q}">${q ? esc(q) : "Sin asignar"}</button>`).join("");
 }
@@ -764,7 +766,7 @@ function abrirTarea(t, col) {
   $("ta-tit").textContent = t ? "Cambiar tarea" : "Nueva tarea";
   $("ta-titulo").value = t ? t.titulo : ""; $("ta-nota").value = t && t.nota || ""; $("ta-fecha").value = t && t.fecha_limite || "";
   $("ta-cada").value = t && t.cada || 1; $("ta-hasta").value = t && t.hasta || "";
-  Object.assign(ft, { col: t ? t.columna : col || "pendiente", q: t ? t.quien || "" : yo.nombre, rep: t && t.repetir || "no" });
+  Object.assign(ft, { col: t ? t.columna : col || "pendiente", q: t ? t.quien || "" : yo.nombre, rep: t && t.repetir || "no", fin: t && t.hasta ? "dia" : "nunca" });
   $("ta-del").hidden = !t; $("ta-del").textContent = "Borrar"; delete $("ta-del").dataset.ok;
   aviso("ta-msg", ""); chipsTa();
   $("velo-ta").hidden = false; document.body.style.overflow = "hidden";
@@ -781,7 +783,8 @@ document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("velo-t
 $("ta-form").addEventListener("submit", async e => {
   e.preventDefault();
   const f = { titulo: $("ta-titulo").value.trim(), nota: $("ta-nota").value.trim() || null, quien: ft.q || null, fecha_limite: $("ta-fecha").value || null,
-    repetir: ft.rep, cada: ft.rep === "no" ? 1 : Math.max(1, Math.min(52, parseInt($("ta-cada").value) || 1)), hasta: ft.rep === "no" ? null : $("ta-hasta").value || null };
+    repetir: ft.rep, cada: ft.rep === "no" ? 1 : Math.max(1, Math.min(52, parseInt($("ta-cada").value) || 1)), hasta: ft.rep === "no" || ft.fin === "nunca" ? null : $("ta-hasta").value || null };
+  if (f.repetir !== "no" && ft.fin === "dia" && !f.hasta) return aviso("ta-msg", "Elige el último día, o marca «Sin fin».", true);
   if (!f.titulo) return aviso("ta-msg", "Escribe qué hay que hacer.", true);
   if (f.repetir !== "no" && !f.fecha_limite) f.fecha_limite = iso(today); // una tarea que se repite necesita su primer día
   if (f.hasta && f.hasta < f.fecha_limite) return aviso("ta-msg", "«Hasta el día» tiene que ser igual o posterior al día de la tarea.", true);
