@@ -422,9 +422,9 @@ $("personas").addEventListener("click", e => { const b = e.target.closest("[data
 const b64u = s => { const b = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)) };
 const esIOS = /iPhone|iPad|iPod/.test(navigator.userAgent), instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
 async function pintarPush() {
-  const txt = $("push-txt"), btn = $("push-btn"), clave = (window.GASTOS_CONFIG || {}).vapidPublicKey;
+  const txt = $("push-txt"), btn = $("push-btn");
   btn.hidden = true;
-  if (store.demo || !clave) return txt.textContent = "Disponible cuando la app está conectada a la base de datos.";
+  if (store.demo) return txt.textContent = "Disponible cuando la app está conectada a la base de datos.";
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return txt.textContent = esIOS && !instalada
     ? "En iPhone, primero instala la app: Compartir > Añadir a pantalla de inicio. Luego ábrela desde el icono y vuelve aquí (hace falta iOS 16.4 o posterior)."
     : "Este navegador no permite notificaciones.";
@@ -440,7 +440,8 @@ $("push-btn").addEventListener("click", async () => {
     if (sus) { await store.borrarPush(sus.endpoint); await sus.unsubscribe() }
     else {
       if (await Notification.requestPermission() !== "granted") throw new Error("No has dado permiso para las notificaciones.");
-      const nueva = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(window.GASTOS_CONFIG.vapidPublicKey) });
+      const clave = await store.clavePush(); if (!clave) throw new Error("Los avisos aún no están listos en el servidor. Prueba más tarde.");
+      const nueva = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(clave) });
       await store.guardarPush(nueva, yo.user_id); aviso("push-msg", "Listo. Los avisos llegan por la mañana.");
     }
   } catch (err) { aviso("push-msg", errTxt(err), true) }

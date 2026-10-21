@@ -1,16 +1,23 @@
 // Envía notificaciones push de las tareas del tablero que vencen dentro de 3 días o de 1 día.
 // La llama cada mañana pg_cron (supabase/avisos-cron.sql). No envía nada dos veces aunque se llame de más.
-// Secretos: VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY (la pública es la misma que vapidPublicKey en config.js).
+// Claves VAPID: la primera vez la función las genera y las guarda en Supabase Vault (guardar_vapid);
+// la app lee la pública con vapid_publica(). La privada nunca sale del servidor.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
 
 type Aviso = { tarea_id: string; fecha_limite: string; dias: number; titulo: string; quien: string | null; user_id: string };
 
 Deno.serve(async () => {
-  const pub = Deno.env.get("VAPID_PUBLIC_KEY"), priv = Deno.env.get("VAPID_PRIVATE_KEY");
-  if (!pub || !priv) return Response.json({ error: "Faltan los secretos VAPID_PUBLIC_KEY o VAPID_PRIVATE_KEY" }, { status: 500 });
-  webpush.setVapidDetails("https://davidpereiralopez.github.io/gastos-casa/", pub, priv);
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  let { data: claves, error: e0 } = await sb.rpc("vapid_claves").single<{ publica: string | null; privada: string | null }>();
+  if (e0) return Response.json({ error: e0.message }, { status: 500 });
+  if (!claves?.privada) {
+    const k = webpush.generateVAPIDKeys();
+    const { error } = await sb.rpc("guardar_vapid", { p_publica: k.publicKey, p_privada: k.privateKey });
+    if (error) return Response.json({ error: error.message }, { status: 500 });
+    ({ data: claves } = await sb.rpc("vapid_claves").single());
+  }
+  webpush.setVapidDetails("https://davidpereiralopez.github.io/gastos-casa/", claves!.publica!, claves!.privada!);
 
   const { data, error } = await sb.rpc("avisos_pendientes");
   if (error) return Response.json({ error: error.message }, { status: 500 });

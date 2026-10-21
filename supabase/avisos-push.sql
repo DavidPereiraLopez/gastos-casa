@@ -36,3 +36,30 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke execute on function avisos_pendientes() from public, anon, authenticated;
 grant execute on function avisos_pendientes() to service_role;
+
+-- Claves VAPID de las notificaciones: la función avisos-tareas las crea la primera vez y las guarda en Vault.
+-- La privada solo la lee el servidor (service_role); la pública la lee la app al activar los avisos.
+create or replace function vapid_claves()
+returns table (publica text, privada text) language sql stable security definer set search_path = public, vault as $$
+  select (select decrypted_secret from vault.decrypted_secrets where name = 'vapid_public_key'),
+         (select decrypted_secret from vault.decrypted_secrets where name = 'vapid_private_key')
+$$;
+revoke execute on function vapid_claves() from public, anon, authenticated;
+grant execute on function vapid_claves() to service_role;
+
+create or replace function guardar_vapid(p_publica text, p_privada text)
+returns void language plpgsql security definer set search_path = public, vault as $$
+begin
+  if exists (select 1 from vault.secrets where name = 'vapid_private_key') then return; end if; -- nunca se sobrescriben
+  perform vault.create_secret(p_privada, 'vapid_private_key');
+  perform vault.create_secret(p_publica, 'vapid_public_key');
+end $$;
+revoke execute on function guardar_vapid(text, text) from public, anon, authenticated;
+grant execute on function guardar_vapid(text, text) to service_role;
+
+create or replace function vapid_publica()
+returns text language sql stable security definer set search_path = public, vault as $$
+  select decrypted_secret from vault.decrypted_secrets where name = 'vapid_public_key'
+$$;
+revoke execute on function vapid_publica() from public, anon;
+grant execute on function vapid_publica() to authenticated;
