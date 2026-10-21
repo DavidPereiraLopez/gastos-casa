@@ -151,8 +151,11 @@ function pintarInicio() {
   // Avisos
   const al = [];
   if (esActual) eventosDel(iso(today)).forEach(e => al.push(["info", "◷", `Hoy${e.hora_ini ? " a las " + hm(e.hora_ini) : ""}: <b>${esc(e.titulo)}</b>${e.quien ? " (" + esc(e.quien) + ")" : ""}.`]));
-  if (esActual) tareas.filter(t => t.columna !== "hecho" && t.fecha_limite && t.fecha_limite <= iso(today) && esMia(t)).forEach(t => al.push([t.fecha_limite < iso(today) ? "warn" : "info", "▦",
-    `Tablero: <b>${esc(t.titulo)}</b> ${t.fecha_limite < iso(today) ? "era para el " + fechaCorta(t.fecha_limite) : "es para hoy"}${t.quien ? " (" + esc(t.quien) + ")" : ""}.`]));
+  // tareas tuyas vencidas, de hoy, o a las que quedan 1 o 3 días
+  if (esActual) tareas.filter(t => t.columna !== "hecho" && t.fecha_limite && esMia(t) && (t.fecha_limite <= iso(today) || [1, 3].includes(diasEntre(iso(today), t.fecha_limite)))).forEach(t => {
+    const n = diasEntre(iso(today), t.fecha_limite);
+    al.push([n < 0 ? "warn" : "info", "▦", `Tablero: <b>${esc(t.titulo)}</b> ${n < 0 ? "era para el " + fechaCorta(t.fecha_limite) : n === 0 ? "es para hoy" : n === 1 ? "es para mañana" : "vence en 3 días"}${t.quien ? " (" + esc(t.quien) + ")" : ""}.`]);
+  });
   const porG = {}; mes.forEach(x => porG[x.g] = (porG[x.g] || 0) + x.i);
   Object.entries(hogar.presupuestos).forEach(([g, p]) => {
     p = Number(p); if (!p) return; const v = porG[g] || 0;
