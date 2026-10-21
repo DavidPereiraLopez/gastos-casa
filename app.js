@@ -503,6 +503,7 @@ function abrirHoja(x) {
   $("h-nota").value = x ? x.n || "" : ""; $("h-fecha").value = x ? x.f : iso(new Date());
   $("h-tit").textContent = !x ? "Nuevo gasto" : x.c ? "Cambiar gasto" : "Ponle categoría";
   $("h-cola").textContent = colaN > 1 ? `${colaN - cola.length} de ${colaN}` : "";
+  $("h-del").hidden = !x; $("h-del").textContent = "Borrar"; delete $("h-del").dataset.ok;
   aviso("h-msg", ""); pintarHoja(); $("velo").hidden = false; document.body.style.overflow = "hidden";
   $("velo").querySelector(".h-cuerpo").scrollTop = 0;
 }
@@ -511,6 +512,9 @@ function cerrarHoja() { $("velo").hidden = true; document.body.style.overflow = 
 function categorizarPendientes() { cola = sinCategoria().map(x => x.id); colaN = cola.length; const id = cola.shift(); if (id) abrirHoja(data.find(x => x.id === id)) }
 $("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : tab === "tab" ? abrirTarea(null) : abrirHoja());
 $("h-x").addEventListener("click", cerrarHoja);
+$("h-del").addEventListener("click", () => dosToques($("h-del"), async () => {
+  try { await store.delGasto(editId); data = data.filter(x => x.id !== editId); cerrarHoja(); pintar() } catch (err) { aviso("h-msg", "No se ha borrado: " + errTxt(err), true) }
+}));
 $("h-ok").addEventListener("click", async () => {
   const v = totalMonto();
   if (!(v > 0)) return aviso("h-msg", "Escribe el importe con el teclado.", true);
