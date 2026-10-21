@@ -824,7 +824,7 @@ function pintarTab() {
       const fl = t.fecha_limite, cls = c === "hecho" || !fl ? "" : fl < hoy ? " bad" : fl === hoy ? " warn" : "";
       const meta = [t.quien ? `<span class="q"><i class="dot" style="background:${colorQ(t.quien)}"></i>${esc(t.quien)}</span>` : "",
         fl ? `<span class="fl${cls}">${fl === hoy ? "Hoy" : fechaCorta(fl)}</span>` : "", t.repetir && t.repetir !== "no" ? `<span class="rp" title="${esc(textoRepTa(t))}">↻ ${esc(textoRepTa(t))}</span>` : "", t.nota ? `<span class="nt" title="${esc(t.nota)}">Nota</span>` : ""].filter(Boolean).join("");
-      return `<li class="ta" draggable="true" data-ta="${t.id}"><button class="ta-b" type="button" data-abrir><span class="t">${esc(t.titulo)}</span>${meta ? `<span class="m">${meta}</span>` : ""}</button>
+      return `<li class="ta" draggable="${ratonFino}" data-ta="${t.id}"><button class="ta-b" type="button" data-abrir><span class="t">${esc(t.titulo)}</span>${meta ? `<span class="m">${meta}</span>` : ""}</button>
         <span class="ta-mv">${k > 0 ? `<button type="button" class="ib" data-mv="-1" aria-label="Pasar a ${COLS[k - 1][1]}">‹</button>` : ""}${k < COLS.length - 1 ? `<button type="button" class="ib" data-mv="1" aria-label="Pasar a ${COLS[k + 1][1]}">›</button>` : ""}</span></li>`;
     };
     return `<section class="col card" data-col="${c}" aria-label="${nom}"><div class="ch"><h2>${nom} <span class="n">${lista.length}</span></h2>${c === "hecho" && lista.length ? `<button class="del" type="button" id="ta-limpiar">Borrar las hechas</button>` : `<button class="ib" type="button" data-nueva="${c}" aria-label="Nueva tarea en ${nom}">+</button>`}</div>
@@ -854,6 +854,7 @@ const ponTa = r => { tareas = tareas.filter(x => x.id !== r.id); tareas.push(r) 
 $("ta-filtro").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (b) { taFiltro = b.dataset.f; pintarTab() } });
 $("ta-add").addEventListener("click", () => abrirTarea(null));
 $("tablero").addEventListener("click", e => {
+  if (trasArrastre) { trasArrastre = false; return } // el toque que suelta una tarjeta no la abre
   if (e.target.id === "ta-limpiar") return dosToques(e.target, async () => {
     const ids = deCol("hecho", true).map(t => t.id);
     try { await store.delTareas(ids); tareas = tareas.filter(t => !ids.includes(t.id)); pintarTab() } catch (err) { e.target.textContent = errTxt(err) }
@@ -865,8 +866,59 @@ $("tablero").addEventListener("click", e => {
   if (mv) { const k = COLS.findIndex(x => x[0] === t.columna) + +mv.dataset.mv; return moverTarea(t, COLS[k][0]) }
   if (e.target.closest("[data-abrir]")) abrirTarea(t);
 });
-// Arrastrar y soltar (ordenador). En el móvil se mueven con las flechas o desde la hoja de la tarea.
-let arrastrada = null;
+// Arrastrar y soltar. Con ratón, el arrastre del navegador; con el dedo, mantener pulsada la tarjeta y moverla.
+const ratonFino = matchMedia("(pointer:fine)").matches;
+if (ratonFino) $("ta-hint").textContent = "Arrastra una tarea para cambiarla de columna o de orden.";
+let arrastrada = null, trasArrastre = false;
+// Dónde se suelta: la columna bajo el punto y la tarjeta delante de la que queda (o al final)
+function destinoEn(x, y, id) {
+  const el = document.elementFromPoint(x, y), col = el && el.closest(".col"); if (!col) return null;
+  const sobre = el.closest(".ta");
+  return { col, antesDe: sobre && sobre.dataset.ta !== id ? sobre.dataset.ta : null, sobre };
+}
+let dedo = null; // { li, id, x, y, dx, dy, activo, timer, fantasma, raf }
+function marcarDestino(d) {
+  document.querySelectorAll(".col.sobre, .ta.antes").forEach(x => x.classList.remove("sobre", "antes"));
+  if (d) { d.col.classList.add("sobre"); if (d.antesDe) d.sobre.classList.add("antes") }
+}
+function finDedo() {
+  if (!dedo) return; clearTimeout(dedo.timer); cancelAnimationFrame(dedo.raf);
+  if (dedo.fantasma) dedo.fantasma.remove(); dedo.li.classList.remove("arr"); marcarDestino(null); document.body.classList.remove("arrastrando"); dedo = null;
+}
+$("tablero").addEventListener("touchstart", e => {
+  const li = e.target.closest(".ta"); if (!li || e.touches.length > 1 || e.target.closest("[data-mv]")) return;
+  const p = e.touches[0];
+  dedo = { li, id: li.dataset.ta, x: p.clientX, y: p.clientY, activo: false };
+  dedo.timer = setTimeout(() => {
+    const r = li.getBoundingClientRect(), f = li.cloneNode(true);
+    f.classList.add("fantasma"); f.style.width = r.width + "px"; document.body.appendChild(f);
+    Object.assign(dedo, { activo: true, fantasma: f, dx: dedo.x - r.left, dy: dedo.y - r.top });
+    li.classList.add("arr"); document.body.classList.add("arrastrando"); if (navigator.vibrate) navigator.vibrate(15);
+    const mover = () => { // coloca la tarjeta bajo el dedo y desliza el tablero o la página si está cerca del borde
+      const { x, y } = dedo, tb = $("tablero");
+      dedo.fantasma.style.transform = `translate(${x - dedo.dx}px, ${y - dedo.dy}px) rotate(2deg)`;
+      if (x < 36) tb.scrollLeft -= 7; else if (x > innerWidth - 36) tb.scrollLeft += 7;
+      if (y < 80) scrollBy(0, -10); else if (y > innerHeight - 110) scrollBy(0, 10);
+      marcarDestino(destinoEn(x, y, dedo.id)); dedo.raf = requestAnimationFrame(mover);
+    };
+    mover();
+  }, 350);
+}, { passive: true });
+$("tablero").addEventListener("touchmove", e => {
+  if (!dedo) return; const p = e.touches[0];
+  if (!dedo.activo) { if (Math.hypot(p.clientX - dedo.x, p.clientY - dedo.y) > 10) finDedo(); return } // se está desplazando, no arrastrando
+  e.preventDefault(); dedo.x = p.clientX; dedo.y = p.clientY;
+}, { passive: false });
+$("tablero").addEventListener("touchend", e => {
+  if (!dedo) return;
+  if (dedo.activo) {
+    e.preventDefault(); trasArrastre = true; setTimeout(() => { trasArrastre = false }, 400);
+    const d = destinoEn(dedo.x, dedo.y, dedo.id), t = tareas.find(x => x.id === dedo.id);
+    finDedo(); if (d && t) moverTarea(t, d.col.dataset.col, d.antesDe);
+  } else finDedo();
+});
+$("tablero").addEventListener("touchcancel", finDedo);
+$("tablero").addEventListener("contextmenu", e => { if (dedo) e.preventDefault() }); // sin menú del navegador al mantener pulsado
 $("tablero").addEventListener("dragstart", e => { const li = e.target.closest(".ta"); if (!li) return; arrastrada = li.dataset.ta; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", arrastrada); li.classList.add("arr") });
 $("tablero").addEventListener("dragend", () => { arrastrada = null; document.querySelectorAll(".col.sobre, .ta.arr").forEach(x => x.classList.remove("sobre", "arr")) });
 $("tablero").addEventListener("dragover", e => { const col = e.target.closest(".col"); if (!col || !arrastrada) return; e.preventDefault(); document.querySelectorAll(".col.sobre").forEach(x => x !== col && x.classList.remove("sobre")); col.classList.add("sobre") });
