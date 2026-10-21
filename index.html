@@ -11,7 +11,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=12">
+<script src="tema.js?v=12"></script>
 </head>
 <body>
 <!--APP-START-->
@@ -179,6 +180,16 @@
       <button class="btn" id="aj-ok" type="button">Guardar cambios</button>
       <p class="toast" id="aj-msg" role="status"></p>
     </section>
+    <section class="card" aria-label="Apariencia">
+      <h2>Apariencia</h2>
+      <p class="hint">Se guarda en este móvil: cada uno puede tener la suya.</p>
+      <span class="hint">Modo</span>
+      <div class="seg" id="ap-modo" role="group" aria-label="Modo">
+        <button type="button" data-m="auto">Automático</button><button type="button" data-m="claro">Claro</button><button type="button" data-m="oscuro">Oscuro</button>
+      </div>
+      <span class="hint">Color principal</span>
+      <div class="colores" id="ap-color" role="group" aria-label="Color principal"></div>
+    </section>
     <section class="card" aria-label="Avisos en este móvil">
       <h2>Avisos en este móvil</h2>
       <p class="hint" id="push-txt"></p>
@@ -291,8 +302,8 @@
 </div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=11"></script>
-<script src="store.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="config.js?v=12"></script>
+<script src="store.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
