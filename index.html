@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 <!--APP-START-->
@@ -271,8 +271,9 @@
         <div class="pk"><span class="pl">Se repite</span><div class="chips" id="ta-rep" role="group" aria-label="Se repite"></div></div>
         <div class="fform" id="ta-rep-op">
           <label>Cada<span class="cada"><input class="field" type="number" id="ta-cada" min="1" max="52" value="1" inputmode="numeric"><span id="ta-cada-u">semanas</span></span></label>
-          <label>Hasta el día<input class="field" type="date" id="ta-hasta"></label>
-          <p class="hint full">Si dejas «Hasta el día» vacío, se repite sin fin. Al pasarla a Hecho, aparece la siguiente en Por hacer.</p>
+          <div class="pk full"><span class="pl">Hasta cuándo</span><div class="chips" id="ta-fin" role="group" aria-label="Hasta cuándo"></div></div>
+          <label class="full" id="ta-hasta-w">Último día<input class="field" type="date" id="ta-hasta"></label>
+          <p class="hint full">Al pasarla a Hecho, aparece la siguiente en Por hacer.</p>
         </div>
       </div>
       <label class="full">Nota<textarea class="field" id="ta-nota" rows="2" placeholder="Opcional"></textarea></label>
@@ -284,8 +285,8 @@
 </div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=8"></script>
-<script src="store.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="store.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
