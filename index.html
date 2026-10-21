@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=5">
+<link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 <!--APP-START-->
@@ -183,6 +183,14 @@
       <h2>Familia</h2>
       <p class="hint">Para que tu pareja entre en este hogar: que cree su cuenta en la app y escriba este código.</p>
       <span class="code" id="codigo"></span>
+      <ul class="lst personas" id="personas"></ul>
+      <p class="hint">¿Alguien aún no se ha unido? Apúntalo para poder elegirlo en «Quién». Con su correo le llegarán los avisos de las tareas.</p>
+      <form class="fform" id="pe-form">
+        <label>Nombre<input class="field" id="pe-nom" placeholder="Ej. Vane" autocomplete="off"></label>
+        <label>Correo (opcional)<input class="field" type="email" id="pe-email" placeholder="nombre@correo.com" autocomplete="off"></label>
+        <button class="btn full" type="submit">Añadir persona</button>
+      </form>
+      <p class="toast" id="pe-msg" role="status"></p>
       <button class="btn danger" id="salir">Cerrar sesión</button>
     </section>
   </main>
@@ -256,7 +264,15 @@
       <label class="full">Qué hay que hacer<input class="field" id="ta-titulo" placeholder="Ej. Pedir cita ITV, cambiar tarifa de la luz…" required></label>
       <div class="pk full"><span class="pl">Columna</span><div class="chips" id="ta-col" role="group" aria-label="Columna"></div></div>
       <div class="pk full"><span class="pl">Quién</span><div class="chips" id="ta-q" role="group" aria-label="Quién"></div></div>
-      <label>Para el día (opcional)<input class="field" type="date" id="ta-fecha"></label>
+      <label class="full">Para el día (opcional)<input class="field" type="date" id="ta-fecha"></label>
+      <div class="full ta-rep-w">
+        <div class="pk"><span class="pl">Se repite</span><div class="chips" id="ta-rep" role="group" aria-label="Se repite"></div></div>
+        <div class="fform" id="ta-rep-op">
+          <label>Cada<span class="cada"><input class="field" type="number" id="ta-cada" min="1" max="52" value="1" inputmode="numeric"><span id="ta-cada-u">semanas</span></span></label>
+          <label>Hasta el día<input class="field" type="date" id="ta-hasta"></label>
+          <p class="hint full">Si dejas «Hasta el día» vacío, se repite sin fin. Al pasarla a Hecho, aparece la siguiente en Por hacer.</p>
+        </div>
+      </div>
       <label class="full">Nota<textarea class="field" id="ta-nota" rows="2" placeholder="Opcional"></textarea></label>
       <button class="btn primary full guardar" type="submit" id="ta-ok">Guardar</button>
       <button class="btn danger full" type="button" id="ta-del" hidden>Borrar</button>
@@ -266,8 +282,8 @@
 </div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=5"></script>
-<script src="store.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="store.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

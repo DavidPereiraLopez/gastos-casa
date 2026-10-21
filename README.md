@@ -9,6 +9,7 @@ App web instalable (PWA) para apuntar y analizar los gastos de casa entre los do
 - `supabase/schema.sql`: tablas y reglas de seguridad. Cada hogar solo ve sus propios datos.
 - `supabase/calendario.sql`: la tabla del calendario compartido, para añadirla a una base que ya tenía `schema.sql`.
 - `supabase/tablero.sql`: la tabla del tablero Kanban (tareas por hacer, haciendo y hechas), para añadirla a una base que ya tenía `schema.sql`.
+- `supabase/tareas-repetir-avisos.sql`: tareas que se repiten, personas del hogar sin cuenta y avisos por correo. `supabase/functions/avisos-tareas`: la función que envía los correos (por Brevo) y `supabase/avisos-cron.sql` la lanza cada mañana.
 - `sw.js`, `manifest.webmanifest`, iconos: para instalarla en el móvil.
 - `build-demo.py`: genera la página de demostración.
 
