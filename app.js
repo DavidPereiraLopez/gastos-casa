@@ -24,7 +24,7 @@ const RULES = [[/mercadona|carrefour|lidl|dia |aldi|eroski|alcampo|consum|ahorra
  [/farmacia/i, "SALUD", "Farmacia"],
  [/clinica|dentist|sanitas|adeslas|optica/i, "SALUD", "Médico"]];
 
-let yo = null, hogar = null, miembros = [], data = [], tickets = [], fijos = [], eventos = [], tareas = [];
+let yo = null, hogar = null, miembros = [], data = [], tickets = [], fijos = [], eventos = [], tareas = [], movimientos = [];
 let mesVista = ym(today), vista = "mes";
 const sel = { g: "", c: "", q: "", p: "Tarjeta", cu: "" };
 
@@ -102,6 +102,7 @@ async function arrancar() {
 async function cargar() {
   const d = await store.cargar();
   hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; hogar.personas = hogar.personas || []; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || []; eventos = d.eventos || []; tareas = d.tareas || [];
+  hogar.saldos = hogar.saldos || {}; movimientos = d.movimientos || [];
 }
 // Gastos fijos: al abrir la app se apuntan los que ya tocaban este mes y faltan
 async function apuntarFijos() {
@@ -132,7 +133,8 @@ function pintar() {
   $("hola").textContent = "Hola, " + yo.nombre;
   $("mes-t").textContent = nombreMes(mesVista);
   $("mes-sig").disabled = mesVista >= ym(today);
-  pintarInicio(); pintarMovs(); pintarCal(); pintarTab(); pintarPres(); pintarMas();
+  pintarInicio(); pintarBolsas(); pintarMovs(); pintarCal(); pintarTab(); pintarPres(); pintarMas();
+  if (!$("velo-bo").hidden) pintarBolsa(); // por si el otro mete o gasta dinero mientras está abierta
 }
 
 // ---------------- Inicio ----------------
@@ -397,7 +399,9 @@ $("aj-ok").addEventListener("click", async () => {
   const grupos = leerGrupos($("aj-cat").value), cuentas = listaComas($("aj-cu").value);
   if (!grupos.length) return aviso("aj-msg", "Deja al menos un grupo.", true);
   try {
-    await store.updHogar(hogar.id, { grupos, cuentas });
+    // una hucha o cuenta común que ya no está en la lista deja de llevar saldo
+    const saldos = Object.fromEntries(Object.entries(hogar.saldos).filter(([c]) => cuentas.includes(c)));
+    await store.updHogar(hogar.id, { grupos, cuentas, saldos });
     const cambios = {}; document.querySelectorAll("#aj-def select").forEach(s => { (cambios[s.dataset.u] ||= {})[s.dataset.f] = s.value });
     for (const [u, c] of Object.entries(cambios)) { if (!cuentas.includes(c.cuenta_def)) c.cuenta_def = cuentas[0] || null; await store.updMiembro(u, c) }
     await cargar(); yo = miembros.find(m => m.user_id === yo.user_id) || yo; pintar(); aviso("aj-msg", "Cambios guardados para los dos. Los gastos ya apuntados conservan su grupo y categoría.");
@@ -487,13 +491,16 @@ function pintarHoja() {
   if (!G.cats.includes(sel.c)) sel.c = "";
   $("h-cats").innerHTML = G.cats.map(c => `<button type="button" class="cat" data-c="${esc(c)}" aria-pressed="${c === sel.c}">${ico(G.g, c)}<span>${esc(c)}</span></button>`).join("");
   chips("h-q", nombres(), "q"); chips("h-cu", hogar.cuentas, "cu"); chips("h-p", PAGOS, "p");
+  // al cambiar un gasto, su importe ya está restado del saldo: se suma para enseñar lo que había antes de él
+  const ed = editId && data.find(x => x.id === editId), antes = ed && ed.cu === sel.cu && llevaSaldo(sel.cu) && ed.f >= hogar.saldos[sel.cu].desde ? ed.i : 0;
+  $("h-cu-l").textContent = "Cuenta" + (llevaSaldo(sel.cu) ? ` · hay ${fmt(saldoDe(sel.cu) + antes)}` : "");
   $("h-sincat").hidden = !!sel.c || !!editId;
   $("h-ok").innerHTML = sel.c ? "Guardar" : cola.length ? "Saltar" : "Guardar<small>sin categoría</small>";
 }
 $("velo").addEventListener("click", e => {
   if (e.target === $("velo")) return cerrarHoja();
   const c = e.target.closest(".chip");
-  if (c && c.closest(".hoja")) { sel[c.dataset.k] = c.dataset.v; if (c.dataset.k === "q" && !editId) { const d = defDe(c.dataset.v); if (d.cuenta_def) sel.cu = d.cuenta_def; if (d.pago_def) sel.p = d.pago_def } pintarHoja(); return }
+  if (c && c.closest(".hoja")) { sel[c.dataset.k] = c.dataset.v; if (c.dataset.k === "cu" && esEfectivo(c.dataset.v)) sel.p = "Efectivo"; if (c.dataset.k === "q" && !editId) { const d = defDe(c.dataset.v); if (d.cuenta_def) sel.cu = d.cuenta_def; if (d.pago_def) sel.p = d.pago_def } pintarHoja(); return }
   const cat = e.target.closest(".cat"); if (cat) { sel.c = sel.c === cat.dataset.c ? "" : cat.dataset.c; pintarHoja() } // otro toque la quita
 });
 function abrirHoja(x) {
@@ -840,6 +847,152 @@ $("ta-del").addEventListener("click", e => dosToques(e.target, async () => {
   try { await store.delTareas([tareaEd.id]); tareas = tareas.filter(x => x.id !== tareaEd.id); cerrarTa(); pintarTab(); pintarInicio() }
   catch (err) { aviso("ta-msg", "No se ha borrado: " + errTxt(err), true) }
 }));
+
+// ---------------- Huchas y cuentas comunes ----------------
+// La app lleva el saldo de las cuentas que están en hogar.saldos ({ "Efectivo VADA": { desde: "2026-10-21" } }).
+// Saldo = lo que llega (aportaciones, traspasos, saldo inicial) − lo que sale − los gastos pagados desde ella a partir de «desde».
+// Las aportaciones y traspasos van en la tabla movimientos y no son gastos: no cuentan en totales ni gráficos.
+const llevaSaldo = c => !!(c && hogar.saldos[c] && hogar.cuentas.includes(c));
+const bolsas = () => hogar.cuentas.filter(llevaSaldo);
+const esEfectivo = c => /efectivo|hucha|caja|met[aá]lico/i.test(c || "");
+const r2 = n => Math.round(n * 100) / 100;
+const movsDe = c => movimientos.filter(m => m.origen === c || m.destino === c);
+const gastosDe = c => data.filter(x => x.cu === c && x.f >= hogar.saldos[c].desde);
+const saldoDe = c => r2(movsDe(c).reduce((a, m) => a + (m.destino === c ? 1 : -1) * Number(m.importe), 0) - gastosDe(c).reduce((a, x) => a + x.i, 0));
+// aportaciones: lo que llega desde otra cuenta (el saldo inicial y los ajustes no tienen origen)
+function aportado(c, desde) { const o = {}; movimientos.filter(m => m.destino === c && m.origen && !llevaSaldo(m.origen) && (!desde || m.fecha >= desde)).forEach(m => { const q = m.quien || "Sin asignar"; o[q] = r2((o[q] || 0) + Number(m.importe)) }); return o }
+function pintarBolsas() {
+  const bs = bolsas(), mes = ym(today);
+  $("bolsas").innerHTML = bs.map(c => {
+    const v = saldoDe(c), ap = Object.entries(aportado(c, mes + "-01")), gm = gastosDe(c).filter(x => x.f.startsWith(mes)).reduce((a, x) => a + x.i, 0);
+    const sub = [ap.length ? "Este mes: " + ap.map(([q, i]) => `${esc(q)} ${fmt0(i)}`).join(" · ") : "", gm ? `gastado ${fmt0(gm)}` : ""].filter(Boolean).join(" · ") || "Sin movimientos este mes";
+    return `<button class="bo" type="button" data-bo="${esc(c)}"><span class="ico bo-ico${esEfectivo(c) ? " ef" : ""}" aria-hidden="true">${esEfectivo(c) ? "€" : "▤"}</span><span class="nm"><b>${esc(c)}</b><br><span class="hint">${sub}</span></span><span class="v${v < 0 ? " neg" : ""}">${fmt(v)}</span></button>`
+  }).join("") + (bs.length ? `<button class="btn primary" type="button" id="bo-mover">Meter o pasar dinero</button>`
+    : '<p class="hint">Crea una hucha de efectivo o lleva el saldo de la cuenta común: lo que pone cada uno, lo que queda y lo que se gasta de ella. Toca «Nueva».</p>');
+}
+$("bolsas").addEventListener("click", e => {
+  const b = e.target.closest("[data-bo]"); if (b) return abrirBolsa(b.dataset.bo);
+  if (e.target.closest("#bo-mover")) abrirMover({ a: bolsas()[0] });
+});
+$("bo-nueva").addEventListener("click", abrirNueva);
+
+const abrirVelo = id => { $(id).hidden = false; document.body.style.overflow = "hidden" };
+const cerrarVelo = id => { $(id).hidden = true; document.body.style.overflow = "" };
+["bo", "mo", "nb"].forEach(k => {
+  $(k + "-x").addEventListener("click", () => cerrarVelo("velo-" + k));
+  $("velo-" + k).addEventListener("click", e => { if (e.target === $("velo-" + k)) cerrarVelo("velo-" + k) });
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape") ["velo-mo", "velo-nb", "velo-bo"].some(id => !$(id).hidden && (cerrarVelo(id), true)) });
+
+// Detalle de una hucha o cuenta común
+let bolsa = null;
+function abrirBolsa(c) { bolsa = c; aviso("bo-msg", ""); $("bo-quitar").textContent = "Dejar de llevar el saldo"; delete $("bo-quitar").dataset.ok; $("bo-real").value = ""; pintarBolsa(); abrirVelo("velo-bo") }
+function pintarBolsa() {
+  if (!bolsa) return;
+  if (!llevaSaldo(bolsa)) { cerrarVelo("velo-bo"); bolsa = null; return }
+  const c = bolsa, v = saldoDe(c);
+  $("bo-tit").textContent = c; $("bo-saldo").textContent = fmt(v); $("bo-saldo").classList.toggle("neg", v < 0);
+  $("bo-desde").textContent = `Llevando el saldo desde el ${fechaCorta(hogar.saldos[c].desde)}`;
+  const tot = Object.entries(aportado(c)).sort((a, b) => b[1] - a[1]), maxA = Math.max(1, ...tot.map(x => x[1]));
+  $("bo-quien").innerHTML = tot.map(([q, i]) => `<div class="bar"><span>${esc(q)}</span><div class="track"><div class="fill" style="width:${i / maxA * 100}%;background:${colorQ(q)}"></div></div><span class="v">${fmt(i)}</span></div>`).join("") || '<p class="hint">Aún nadie ha metido dinero desde su cuenta.</p>';
+  const filas = [...movsDe(c).map(m => {
+    const entra = m.destino === c, otra = entra ? m.origen : m.destino;
+    const t = m.nota || (otra ? (entra ? "Desde " : "A ") + otra : entra ? "Entrada" : "Salida");
+    const s = [m.nota && otra ? (entra ? "Desde " : "A ") + otra : "", m.quien].filter(Boolean).join(" · ");
+    return { f: m.fecha, html: `<li class="mv" data-mo="${m.id}"><span class="ico bo-ico${entra ? " in" : " out"}" aria-hidden="true">${entra ? "↓" : "↑"}</span><span><span class="t">${esc(t)}</span><br><span class="s">${fechaCorta(m.fecha)}${s ? " · " + esc(s) : ""}</span></span><span class="a${entra ? " mas" : ""}">${entra ? "+" : "−"}${fmt(m.importe)}</span></li>` }
+  }), ...gastosDe(c).map(x => ({ f: x.f, html: `<li class="mv" data-g="${x.id}">${ico(x.g, x.c)}<span><span class="t">${esc(x.n || x.c || SIN)}</span><br><span class="s">${fechaCorta(x.f)} · ${x.c ? `${esc(x.g)} › ${esc(x.c)}` : SIN}${x.q ? " · " + esc(x.q) : ""}</span></span><span class="a">−${fmt(x.i)}</span></li>` }))]
+    .sort((a, b) => b.f.localeCompare(a.f));
+  $("bo-movs").innerHTML = filas.slice(0, 80).map(x => x.html).join("") || '<li class="vacio">Sin movimientos todavía.</li>';
+}
+$("bo-movs").addEventListener("click", e => {
+  const del = e.target.closest("[data-delmo]");
+  if (del) return dosToques(del, async () => { try { await store.delMovimiento(del.dataset.delmo); movimientos = movimientos.filter(m => m.id !== del.dataset.delmo); pintar() } catch (err) { aviso("bo-msg", errTxt(err), true) } });
+  const g = e.target.closest("[data-g]"); if (g) { cerrarVelo("velo-bo"); return abrirHoja(data.find(x => x.id === g.dataset.g)) }
+  const li = e.target.closest("[data-mo]"); if (!li) return;
+  const abierto = li.querySelector(".acc"); $("bo-movs").querySelectorAll(".acc").forEach(a => a.remove());
+  if (!abierto) li.insertAdjacentHTML("beforeend", `<span class="acc"><button class="btn sm danger" type="button" data-delmo="${li.dataset.mo}">Borrar</button></span>`);
+});
+$("bo-meter").addEventListener("click", () => abrirMover({ a: bolsa }));
+$("bo-sacar").addEventListener("click", () => abrirMover({ de: bolsa }));
+$("bo-gasto").addEventListener("click", () => { const c = bolsa; cerrarVelo("velo-bo"); abrirHoja(); sel.cu = c; if (esEfectivo(c)) sel.p = "Efectivo"; pintarHoja() });
+$("bo-aj").addEventListener("submit", async e => {
+  e.preventDefault();
+  const real = parseImporte($("bo-real").value); if (!(real >= 0)) return aviso("bo-msg", "Escribe cuánto hay, por ejemplo 45,50.", true);
+  const dif = r2(real - saldoDe(bolsa)); if (!dif) return aviso("bo-msg", "Ya cuadra, no hay nada que ajustar.");
+  try {
+    movimientos.push(await store.addMovimiento({ fecha: iso(new Date()), importe: Math.abs(dif), origen: dif < 0 ? bolsa : null, destino: dif > 0 ? bolsa : null, quien: yo.nombre, nota: "Ajuste de saldo" }));
+    $("bo-real").value = ""; e.target.closest("details").open = false; pintar(); aviso("bo-msg", `Ajustado: ${dif > 0 ? "+" : "−"}${fmt(Math.abs(dif))}.`);
+  } catch (err) { aviso("bo-msg", errTxt(err), true) }
+});
+$("bo-quitar").addEventListener("click", e => dosToques(e.target, async () => {
+  const saldos = { ...hogar.saldos }; delete saldos[bolsa];
+  try { await store.updHogar(hogar.id, { saldos }); hogar.saldos = saldos; cerrarVelo("velo-bo"); bolsa = null; pintar() } catch (err) { aviso("bo-msg", errTxt(err), true) }
+}));
+
+// Meter, sacar o pasar dinero. Al elegir quién, «Sale de» propone su cuenta o su efectivo (la que lleva su nombre).
+const fm = { q: "", de: "", a: "", auto: false };
+function cuentaDe(q, efectivo, menos) {
+  const n = String(q || "").toLowerCase(), libres = hogar.cuentas.filter(c => c !== menos && !llevaSaldo(c));
+  return libres.find(c => c.toLowerCase().includes(n) && esEfectivo(c) === efectivo) || libres.find(c => c.toLowerCase().includes(n)) || (defDe(q).cuenta_def !== menos && defDe(q).cuenta_def) || libres[0] || "";
+}
+function abrirMover({ de, a }) {
+  Object.assign(fm, { q: yo.nombre, de: de || "", a: a || "", auto: !de });
+  if (!de && a) fm.de = cuentaDe(fm.q, esEfectivo(a), a);
+  // sacar de la cuenta común: lo normal es pasarlo al efectivo común (cajero)
+  if (de && !a) fm.a = bolsas().find(c => c !== de && esEfectivo(c) !== esEfectivo(de)) || hogar.cuentas.find(c => c !== de) || "";
+  $("mo-tit").textContent = de ? `Sacar de ${de}` : a ? `Meter en ${a}` : "Mover dinero";
+  $("mo-imp").value = ""; $("mo-nota").value = ""; $("mo-fecha").value = iso(new Date()); aviso("mo-msg", "");
+  chipsMo(); abrirVelo("velo-mo"); $("mo-imp").focus();
+}
+function chipsMo() {
+  const ch = (id, k, lista) => $(id).innerHTML = lista.map(v => `<button type="button" class="chip${llevaSaldo(v) ? " comun" : ""}" data-k="${k}" data-v="${esc(v)}" aria-pressed="${fm[k] === v}">${esc(v)}</button>`).join("");
+  ch("mo-q", "q", nombres()); ch("mo-de", "de", hogar.cuentas); ch("mo-a", "a", hogar.cuentas.filter(c => c !== fm.de));
+}
+$("velo-mo").addEventListener("click", e => {
+  const c = e.target.closest(".chip"); if (!c) return;
+  fm[c.dataset.k] = c.dataset.v;
+  if (c.dataset.k === "de") { fm.auto = false; if (fm.a === fm.de) fm.a = "" }
+  if (c.dataset.k === "q" && fm.auto && fm.a) fm.de = cuentaDe(fm.q, esEfectivo(fm.a), fm.a);
+  chipsMo();
+});
+$("mo-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const imp = r2(parseImporte($("mo-imp").value));
+  if (!(imp > 0)) return aviso("mo-msg", "Pon un importe mayor que 0.", true);
+  if (!fm.de || !fm.a) return aviso("mo-msg", "Elige de dónde sale y a dónde llega.", true);
+  if (!llevaSaldo(fm.de) && !llevaSaldo(fm.a)) return aviso("mo-msg", "Una de las dos tiene que ser una hucha o cuenta común.", true);
+  $("mo-ok").disabled = true;
+  try {
+    movimientos.push(await store.addMovimiento({ fecha: $("mo-fecha").value || iso(new Date()), importe: imp, origen: fm.de, destino: fm.a, quien: fm.q || null, nota: $("mo-nota").value.trim() || null }));
+    cerrarVelo("velo-mo"); pintar();
+  } catch (err) { aviso("mo-msg", "No se ha guardado: " + errTxt(err), true) }
+  finally { $("mo-ok").disabled = false }
+});
+
+// Nueva hucha, o empezar a llevar el saldo de una cuenta que ya existe
+function abrirNueva() {
+  const libres = hogar.cuentas.filter(c => !llevaSaldo(c));
+  $("nb-ex-w").hidden = !libres.length;
+  $("nb-ex").innerHTML = libres.map(c => `<button type="button" class="chip" data-v="${esc(c)}" aria-pressed="false">${esc(c)}</button>`).join("");
+  $("nb-nom").value = ""; $("nb-ini").value = ""; aviso("nb-msg", ""); abrirVelo("velo-nb");
+}
+$("nb-ex").addEventListener("click", e => { const c = e.target.closest(".chip"); if (!c) return; $("nb-nom").value = c.dataset.v; $("nb-ex").querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", b === c)) });
+$("nb-nom").addEventListener("input", () => $("nb-ex").querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === $("nb-nom").value.trim())));
+$("nb-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const nom = $("nb-nom").value.trim().replace(/,/g, ""), ini = $("nb-ini").value.trim() ? r2(parseImporte($("nb-ini").value)) : 0;
+  if (!nom) return aviso("nb-msg", "Ponle un nombre, por ejemplo Efectivo VADA.", true);
+  if (llevaSaldo(nom)) return aviso("nb-msg", `Ya se lleva el saldo de ${nom}.`, true);
+  if (!(ini >= 0)) return aviso("nb-msg", "Escribe cuánto hay, por ejemplo 120 o 45,50.", true);
+  $("nb-ok").disabled = true;
+  try {
+    const hoy = iso(new Date()), cuentas = hogar.cuentas.includes(nom) ? hogar.cuentas : [...hogar.cuentas, nom], saldos = { ...hogar.saldos, [nom]: { desde: hoy } };
+    await store.updHogar(hogar.id, { cuentas, saldos }); hogar.cuentas = cuentas; hogar.saldos = saldos;
+    if (ini > 0) movimientos.push(await store.addMovimiento({ fecha: hoy, importe: ini, origen: null, destino: nom, quien: yo.nombre, nota: "Saldo inicial" }));
+    cerrarVelo("velo-nb"); pintar(); abrirBolsa(nom);
+  } catch (err) { aviso("nb-msg", "No se ha guardado: " + errTxt(err), true) }
+  finally { $("nb-ok").disabled = false }
+});
 
 store.onAuth(arrancar);
 if ("serviceWorker" in navigator && !store.demo) {

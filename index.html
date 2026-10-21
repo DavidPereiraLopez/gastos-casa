@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=11">
+<link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body>
 <!--APP-START-->
@@ -55,6 +55,10 @@
       <span class="big" id="s-total">0,00 €</span>
       <div class="prog" aria-hidden="true"><i id="s-prog" style="width:0"></i></div>
       <span class="meta" id="s-meta"></span>
+    </section>
+    <section class="card" aria-label="Huchas y cuentas comunes">
+      <div class="ch"><h2>Huchas y cuentas comunes</h2><button class="btn sm" id="bo-nueva" type="button">Nueva</button></div>
+      <div class="bolsas" id="bolsas"></div>
     </section>
     <section class="card" aria-label="Avisos" id="c-alertas"><h2>Avisos</h2><div class="alertas" id="alertas"></div></section>
     <section class="card" aria-label="Gasto por grupo">
@@ -173,7 +177,8 @@
     <section class="card ajustes" aria-label="Ajustes">
       <h2>Grupos, categorías y cuentas</h2>
       <label>Grupos y categorías (una línea por grupo: GRUPO: categoría, categoría)<textarea class="field" id="aj-cat" rows="7"></textarea></label>
-      <label>Cuentas bancarias (separadas por comas)<input class="field" id="aj-cu"></label>
+      <label>Cuentas y efectivo (separadas por comas)<input class="field" id="aj-cu"></label>
+      <span class="hint">Si cambias el nombre de una hucha o cuenta común, se deja de llevar su saldo.</span>
       <span class="hint">Lo que usa cada uno por defecto</span>
       <div class="defs" id="aj-def"></div>
       <button class="btn" id="aj-ok" type="button">Guardar cambios</button>
@@ -226,7 +231,7 @@
       <div class="cats" id="h-cats" role="group" aria-label="Categoría"></div>
       <p class="hint" id="h-sincat">Si no sabes la categoría, guárdalo igual y pónsela luego.</p>
       <div class="pk"><span class="pl">Quién paga</span><div class="chips" id="h-q"></div></div>
-      <div class="pk"><span class="pl">Cuenta</span><div class="chips" id="h-cu"></div></div>
+      <div class="pk"><span class="pl" id="h-cu-l">Cuenta</span><div class="chips" id="h-cu"></div></div>
       <div class="pk"><span class="pl">Forma de pago</span><div class="chips" id="h-p"></div></div>
       <div class="extra"><input class="field" id="h-nota" placeholder="Nota (opcional)" aria-label="Nota"><input class="field" type="date" id="h-fecha" aria-label="Fecha"></div>
     </div>
@@ -289,10 +294,63 @@
     </form>
   </div>
 </div>
+<!-- Hoja de una hucha o cuenta común: saldo, quién ha puesto qué y sus movimientos -->
+<div class="velo" id="velo-bo" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="bo-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="bo-tit"></h2><button class="ib" id="bo-x" aria-label="Cerrar" type="button">✕</button></div>
+    <div class="bo-saldo"><span class="hint">Hay ahora</span><span class="big" id="bo-saldo"></span><span class="hint" id="bo-desde"></span></div>
+    <div class="bo-acc"><button class="btn primary" id="bo-meter" type="button">Meter dinero</button><button class="btn" id="bo-sacar" type="button">Sacar o pasar</button><button class="btn" id="bo-gasto" type="button">Apuntar gasto</button></div>
+    <div class="pk"><span class="pl">Lo que ha puesto cada uno</span><div class="bars" id="bo-quien"></div></div>
+    <div class="pk"><span class="pl">Movimientos</span><ul class="movs bo-movs" id="bo-movs"></ul></div>
+    <details>
+      <summary class="link">¿No cuadra? Ajustar el saldo</summary>
+      <form class="fform" id="bo-aj" style="margin-top:10px">
+        <label class="full">Cuánto hay de verdad (€)<input class="field" id="bo-real" inputmode="decimal" required></label>
+        <button class="btn full" type="submit">Ajustar</button>
+      </form>
+    </details>
+    <button class="btn danger" id="bo-quitar" type="button">Dejar de llevar el saldo</button>
+    <p class="toast" id="bo-msg" role="status"></p>
+  </div>
+</div>
+<!-- Hoja para meter, sacar o pasar dinero entre cuentas (no cuenta como gasto) -->
+<div class="velo" id="velo-mo" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="mo-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="mo-tit">Mover dinero</h2><button class="ib" id="mo-x" aria-label="Cerrar" type="button">✕</button></div>
+    <form class="fform" id="mo-form" novalidate>
+      <label class="full">Importe (€)<input class="field mo-imp" id="mo-imp" inputmode="decimal" placeholder="0,00" required></label>
+      <div class="pk full"><span class="pl">Quién</span><div class="chips" id="mo-q" role="group" aria-label="Quién"></div></div>
+      <div class="pk full"><span class="pl">Sale de</span><div class="chips" id="mo-de" role="group" aria-label="Sale de"></div></div>
+      <div class="pk full"><span class="pl">Llega a</span><div class="chips" id="mo-a" role="group" aria-label="Llega a"></div></div>
+      <label>Fecha<input class="field" type="date" id="mo-fecha"></label>
+      <label>Nota<input class="field" id="mo-nota" placeholder="Opcional"></label>
+      <p class="hint full">No cuenta como gasto: solo cambia lo que hay en cada hucha o cuenta común.</p>
+      <button class="btn primary full guardar" type="submit" id="mo-ok">Guardar</button>
+      <p class="toast full" id="mo-msg" role="status"></p>
+    </form>
+  </div>
+</div>
+<!-- Hoja para crear una hucha o empezar a llevar el saldo de una cuenta -->
+<div class="velo" id="velo-nb" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="nb-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="nb-tit">Nueva hucha o cuenta común</h2><button class="ib" id="nb-x" aria-label="Cerrar" type="button">✕</button></div>
+    <form class="fform" id="nb-form" novalidate>
+      <div class="pk full" id="nb-ex-w"><span class="pl">De una cuenta que ya tenéis</span><div class="chips" id="nb-ex" role="group" aria-label="Cuentas que ya tenéis"></div></div>
+      <label class="full">Nombre<input class="field" id="nb-nom" placeholder="Ej. Efectivo VADA, Cuenta VADA" autocomplete="off" required></label>
+      <label class="full">Cuánto hay ahora (€)<input class="field" id="nb-ini" inputmode="decimal" placeholder="0,00"></label>
+      <p class="hint full">Desde hoy, lo que metáis, saquéis y gastéis desde aquí cambia su saldo. Aparecerá también en «Cuenta» al apuntar un gasto.</p>
+      <button class="btn primary full guardar" type="submit" id="nb-ok">Crear</button>
+      <p class="toast full" id="nb-msg" role="status"></p>
+    </form>
+  </div>
+</div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=11"></script>
-<script src="store.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="config.js?v=12"></script>
+<script src="store.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
