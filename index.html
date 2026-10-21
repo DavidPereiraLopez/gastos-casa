@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
 <!--APP-START-->
@@ -209,21 +209,23 @@
   </div>
 </nav>
 
-<!-- Hoja para apuntar un gasto -->
+<!-- Hoja para apuntar un gasto: importe y teclado siempre a la vista; el resto se desplaza entre medias -->
 <div class="velo" id="velo" hidden>
-  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="h-tit">
+  <div class="hoja hoja-g" role="dialog" aria-modal="true" aria-labelledby="h-tit">
     <div class="asa"></div>
-    <div class="ch"><h2 id="h-tit">Nuevo gasto</h2><button class="ib" id="h-x" aria-label="Cerrar">✕</button></div>
-    <div class="monto" aria-live="polite"><span class="n" id="h-monto">0</span><span class="e">€</span></div>
-    <div class="grupos" id="h-grupos" role="group" aria-label="Grupo"></div>
-    <div class="cats" id="h-cats" role="group" aria-label="Categoría"></div>
-    <div class="pk"><span class="pl">Quién paga</span><div class="chips" id="h-q"></div></div>
-    <div class="pk"><span class="pl">Cuenta</span><div class="chips" id="h-cu"></div></div>
-    <div class="pk"><span class="pl">Forma de pago</span><div class="chips" id="h-p"></div></div>
-    <div class="extra"><input class="field" id="h-nota" placeholder="Nota (opcional)" aria-label="Nota"><input class="field" type="date" id="h-fecha" aria-label="Fecha"></div>
-    <div class="teclado" id="teclado"></div>
-    <button class="btn primary guardar" id="h-ok">Guardar gasto</button>
+    <div class="ch"><h2 id="h-tit">Nuevo gasto</h2><span class="hint" id="h-cola"></span><button class="ib" id="h-x" aria-label="Cerrar">✕</button></div>
+    <div class="monto" aria-live="polite"><span class="expr" id="h-expr"></span><span class="n" id="h-monto">0</span><span class="e">€</span></div>
+    <div class="h-cuerpo">
+      <div class="grupos" id="h-grupos" role="group" aria-label="Grupo"></div>
+      <div class="cats" id="h-cats" role="group" aria-label="Categoría"></div>
+      <p class="hint" id="h-sincat">Si no sabes la categoría, guárdalo igual y pónsela luego.</p>
+      <div class="pk"><span class="pl">Quién paga</span><div class="chips" id="h-q"></div></div>
+      <div class="pk"><span class="pl">Cuenta</span><div class="chips" id="h-cu"></div></div>
+      <div class="pk"><span class="pl">Forma de pago</span><div class="chips" id="h-p"></div></div>
+      <div class="extra"><input class="field" id="h-nota" placeholder="Nota (opcional)" aria-label="Nota"><input class="field" type="date" id="h-fecha" aria-label="Fecha"></div>
+    </div>
     <p class="toast" id="h-msg" role="status"></p>
+    <div class="teclado" id="teclado"></div>
   </div>
 </div>
 <!-- Hoja para añadir o cambiar algo del calendario -->
@@ -282,8 +284,8 @@
 </div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=6"></script>
-<script src="store.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="config.js?v=8"></script>
+<script src="store.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

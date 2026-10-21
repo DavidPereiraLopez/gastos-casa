@@ -42,6 +42,7 @@
       addGastos: async filas => ok(await sb.from("gastos").insert(filas).select()),
       // gastos fijos: el índice único (recurrente_id, periodo) evita duplicados si los dos móviles lo intentan a la vez
       addGastosFijos: async filas => ok(await sb.from("gastos").upsert(filas, { onConflict: "recurrente_id,periodo", ignoreDuplicates: true }).select()),
+      updGasto: async (id, c) => ok(await sb.from("gastos").update(c).eq("id", id).select().single()),
       delGasto: async id => ok(await sb.from("gastos").delete().eq("id", id)),
       updHogar: async (id, c) => ok(await sb.from("hogares").update(c).eq("id", id)),
       updMiembro: async (uid, c) => ok(await sb.from("miembros").update(c).eq("user_id", uid)),
@@ -161,6 +162,7 @@
         const out = filas.filter(f => !db.gastos.some(g => g.recurrente_id === f.recurrente_id && g.periodo === f.periodo)).map(f => ({ id: uid(), ...f }));
         db.gastos.push(...out); save(); return clone(out)
       },
+      updGasto: async (id, c) => { const g = db.gastos.find(x => x.id === id); Object.assign(g, c); save(); return clone(g) },
       delGasto: async id => { db.gastos = db.gastos.filter(g => g.id !== id); save() },
       updHogar: async (id, c) => { Object.assign(db.hogar, c); save() },
       updMiembro: async (u, c) => { Object.assign(db.miembros.find(m => m.user_id === u), c); save() },
