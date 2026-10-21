@@ -33,16 +33,24 @@
       unirse: async (codigo, nombre) => ok(await sb.rpc("unirse_hogar", { p_codigo: codigo, p_nombre_persona: nombre })),
       cargar: async () => {
         const desde = iso(new Date(new Date().getFullYear() - 2, 0, 1)); // este año y los dos anteriores
-        const [h, ms, gs, ts, rs, es, tas] = await Promise.all([
+        const [h, ms, gs, ts, rs, es, tas, mvs] = await Promise.all([
           sb.from("hogares").select("*").single(),
           sb.from("miembros").select("*").order("creado"),
           sb.from("gastos").select("*").gte("fecha", desde).order("fecha", { ascending: false }).limit(20000),
           sb.from("tickets").select("*").order("fecha_compra", { ascending: false }),
           sb.from("recurrentes").select("*").order("dia"),
           sb.from("eventos").select("*").order("fecha"),
-          sb.from("tareas").select("*").order("orden")]);
-        // si las tablas del calendario o del tablero aún no existen, la app sigue funcionando sin ellos
-        return { hogar: ok(h), miembros: ok(ms), gastos: ok(gs), tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data, tareas: tas.error ? [] : tas.data };
+          sb.from("tareas").select("*").order("orden"),
+          sb.from("movimientos").select("*").order("fecha", { ascending: false })]);
+        const hogar = ok(h), gastos = ok(gs);
+        // el saldo de una hucha o cuenta común necesita todos sus gastos desde que se lleva, aunque sean de antes de esos años
+        const viejas = Object.entries(hogar.saldos || {}).filter(([, v]) => v.desde < desde);
+        if (viejas.length) {
+          const ini = viejas.map(([, v]) => v.desde).sort()[0];
+          gastos.push(...ok(await sb.from("gastos").select("*").in("cuenta", viejas.map(([c]) => c)).gte("fecha", ini).lt("fecha", desde)));
+        }
+        // si las tablas del calendario, del tablero o de las huchas aún no existen, la app sigue funcionando sin ellos
+        return { hogar, miembros: ok(ms), gastos, tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data, tareas: tas.error ? [] : tas.data, movimientos: mvs.error ? [] : mvs.data };
       },
       addGastos: async filas => ok(await sb.from("gastos").insert(filas).select()),
       // gastos fijos: el índice único (recurrente_id, periodo) evita duplicados si los dos móviles lo intentan a la vez
@@ -70,6 +78,8 @@
       addTarea: async f => ok(await sb.from("tareas").insert(f).select().single()),
       updTarea: async (id, c) => ok(await sb.from("tareas").update(c).eq("id", id).select().single()),
       delTareas: async ids => ok(await sb.from("tareas").delete().in("id", ids)),
+      addMovimiento: async f => ok(await sb.from("movimientos").insert(f).select().single()),
+      delMovimiento: async id => ok(await sb.from("movimientos").delete().eq("id", id)),
       // notificaciones push: cada móvil guarda su suscripción, ligada al usuario
       clavePush: async () => ok(await sb.rpc("vapid_publica")),
       guardarPush: async (sus, uid) => { const j = sus.toJSON(); ok(await sb.from("push_suscripciones").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_id: uid }, { onConflict: "endpoint" })) },
@@ -78,7 +88,7 @@
         if (canal) return;
         let t = null; const avisar = () => { clearTimeout(t); t = setTimeout(fn, 400) };
         canal = sb.channel("hogar-" + hogarId);
-        ["gastos", "tickets", "recurrentes", "eventos", "tareas"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
+        ["gastos", "tickets", "recurrentes", "eventos", "tareas", "movimientos"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
         canal.subscribe();
       },
       dejarDeEscuchar: () => { if (canal) { sb.removeChannel(canal); canal = null } }
@@ -87,12 +97,13 @@
 
   // ---------------- Demo (solo este navegador) ----------------
   function demoStore() {
-    const KEY = "gastos-casa-demo-v3";
+    const KEY = "gastos-casa-demo-v4";
     const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
     const today = new Date();
     function semilla() {
       const H = "demo-hogar";
-      const hogar = { id: H, nombre: "Casa", codigo_invitacion: "DEMO1234", grupos: GRUPOS0, cuentas: ["Cuenta común", "Cuenta de David", "Cuenta de Pareja"],
+      const hogar = { id: H, nombre: "Casa", codigo_invitacion: "DEMO1234", grupos: GRUPOS0, cuentas: ["Cuenta común", "Cuenta de David", "Cuenta de Pareja", "Efectivo común", "Efectivo de David", "Efectivo de Pareja"],
+        saldos: { "Cuenta común": { desde: inicioSaldos() }, "Efectivo común": { desde: inicioSaldos() } },
         presupuestos: { CASA: 650, NIÑAS: 300, TRANSPORTE: 150, OCIO: 120, SALUD: 60, OTROS: 50 } };
       const miembros = [{ user_id: "u-david", hogar_id: H, nombre: "David", cuenta_def: "Cuenta de David", pago_def: "Tarjeta" },
                         { user_id: "u-pareja", hogar_id: H, nombre: "Pareja", cuenta_def: "Cuenta de Pareja", pago_def: "Tarjeta" }];
@@ -104,7 +115,7 @@
       const BASE = [[2, "CASA", "Supermercado", "Mercadona", "David", "Tarjeta", "Cuenta común", 54.3], [3, "OCIO", "Comer fuera", "Cafetería", "Pareja", "Bizum", "Cuenta de Pareja", 12.5],
         [4, "CASA", "Luz y gas", "Endesa", "David", "Domiciliación", "Cuenta común", 68.9], [6, "TRANSPORTE", "Gasolina", "Repsol", "David", "Tarjeta", "Cuenta de David", 40],
         [8, "NIÑAS", "Extraescolares", "Academia de danza", "David", "Transferencia", "Cuenta de David", 45], [9, "CASA", "Supermercado", "Lidl", "Pareja", "Tarjeta", "Cuenta de Pareja", 31.75],
-        [11, "SALUD", "Farmacia", "Farmacia", "Pareja", "Efectivo", "", 8.4], [14, "CASA", "Supermercado", "Mercadona", "Pareja", "Tarjeta", "Cuenta común", 88.2],
+        [11, "SALUD", "Farmacia", "Farmacia", "Pareja", "Efectivo", "Efectivo común", 8.4], [14, "CASA", "Supermercado", "Mercadona", "Pareja", "Tarjeta", "Cuenta común", 88.2],
         [17, "NIÑAS", "Ropa", "Zara Kids", "Pareja", "Tarjeta", "Cuenta de Pareja", 39.9], [21, "OCIO", "Comer fuera", "Restaurante", "David", "Tarjeta", "Cuenta común", 46],
         [23, "TRANSPORTE", "Gasolina", "Cepsa", "Pareja", "Tarjeta", "Cuenta de Pareja", 45], [27, "CASA", "Supermercado", "Carrefour", "David", "Tarjeta", "Cuenta común", 72.6]];
       const gastos = [];
@@ -124,7 +135,20 @@
       const tickets = [{ id: uid(), producto: "Lavadora Bosch Serie 4", tienda: "MediaMarkt", fecha_compra: yAgo(2, 10), anos_garantia: 3, importe: 449, archivo: null },
         { id: uid(), producto: "Portátil Lenovo IdeaPad", tienda: "El Corte Inglés", fecha_compra: yAgo(1, 2), anos_garantia: 3, importe: 699, archivo: null },
         { id: uid(), producto: "Cafetera Krups", tienda: "Amazon", fecha_compra: yAgo(3, 6), anos_garantia: 3, importe: 89.9, archivo: null }];
-      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo(), tareas: tareasDemo() };
+      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo(), tareas: tareasDemo(), movimientos: movimientosDemo() };
+    }
+    // la demo lleva el saldo de la cuenta común y del efectivo común desde el día 1 del mes pasado
+    function inicioSaldos() { return iso(new Date(today.getFullYear(), today.getMonth() - 1, 1)) }
+    function movimientosDemo() {
+      const out = [], d0 = inicioSaldos(), mv = (fecha, importe, origen, destino, quien, nota) => out.push({ id: uid(), fecha, importe, origen, destino, quien, nota });
+      mv(d0, 1200, null, "Cuenta común", "David", "Saldo inicial"); mv(d0, 40, null, "Efectivo común", "David", "Saldo inicial");
+      for (let m = 1; m >= 0; m--) {
+        const f = n => iso(new Date(today.getFullYear(), today.getMonth() - m, n)), ya = n => m || today.getDate() >= n;
+        mv(f(1), 750, "Cuenta de David", "Cuenta común", "David", "Aportación del mes"); mv(f(1), 600, "Cuenta de Pareja", "Cuenta común", "Pareja", "Aportación del mes");
+        if (ya(3)) mv(f(3), 50, "Efectivo de Pareja", "Efectivo común", "Pareja", null);
+        if (ya(10)) mv(f(10), 60, "Cuenta común", "Efectivo común", "David", "Cajero");
+      }
+      return out;
     }
     function tareasDemo() {
       const d = n => iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n));
@@ -153,6 +177,7 @@
     if (!db || !db.hogar) db = semilla();
     if (!db.eventos) db.eventos = eventosDemo();
     if (!db.tareas) db.tareas = tareasDemo();
+    if (!db.movimientos) { db.movimientos = []; db.hogar.saldos ||= {} }
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) { } };
     const archivos = {}; // fotos de tickets de la demo: solo mientras la página está abierta
     const clone = x => JSON.parse(JSON.stringify(x));
@@ -186,6 +211,8 @@
       addTarea: async f => { const t = { id: uid(), columna: "pendiente", orden: 0, hecho: null, ...f }; db.tareas.push(t); save(); return clone(t) },
       updTarea: async (id, c) => { const t = db.tareas.find(x => x.id === id); Object.assign(t, c); save(); return clone(t) },
       delTareas: async ids => { db.tareas = db.tareas.filter(x => !ids.includes(x.id)); save() },
+      addMovimiento: async f => { const m = { id: uid(), ...f }; db.movimientos.push(m); save(); return clone(m) },
+      delMovimiento: async id => { db.movimientos = db.movimientos.filter(x => x.id !== id); save() },
       urlTicket: async t => { if (!archivos[t.archivo]) throw new Error("En la demo las fotos solo se ven mientras la página está abierta."); return archivos[t.archivo] },
       clavePush: async () => null, guardarPush: async () => { }, borrarPush: async () => { },
       escuchar: () => { }, dejarDeEscuchar: () => { }
