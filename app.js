@@ -101,7 +101,7 @@ async function arrancar() {
     await cargar();
     sel.q = yo.nombre; sel.p = yo.pago_def || "Tarjeta"; sel.cu = yo.cuenta_def || hogar.cuentas[0] || ""; sel.g = hogar.grupos[0].g;
     $("demo").hidden = !store.demo;
-    mostrar("v-app"); pintar();
+    mostrar("v-app"); pintar(); pintarPush().catch(() => { });
     await apuntarFijos();
     store.escuchar(hogar.id, async () => { await cargar(); pintar() });
   } catch (err) { mostrar("v-login"); aviso("l-err", errTxt(err), true) }
@@ -426,6 +426,50 @@ $("pe-form").addEventListener("submit", e => {
 });
 $("personas").addEventListener("click", e => { const b = e.target.closest("[data-pe]"); if (b) dosToques(b, () => guardarPersonas(hogar.personas.filter(p => p.nombre !== b.dataset.pe), "Quitada.")) });
 
+// ---------------- Apariencia (tema.js) ----------------
+const NOM_COLOR = { verde: "Verde", azul: "Azul", morado: "Morado", rosa: "Rosa", naranja: "Naranja", rojo: "Rojo", turquesa: "Turquesa", grafito: "Grafito" };
+function pintarApariencia() {
+  const t = tema.leer(), modo = t.modo || "auto", color = t.color || "verde", propio = !tema.COLORES[color];
+  $("ap-modo").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === modo));
+  $("ap-color").innerHTML = Object.entries(tema.COLORES).map(([k, [cl, os]]) => `<button type="button" class="color" data-c="${k}" style="--cl:${cl};--os:${os}" aria-pressed="${k === color}" aria-label="${NOM_COLOR[k]}" title="${NOM_COLOR[k]}"></button>`).join("")
+    + `<label class="color otro" title="Otro color" aria-pressed="${propio}" style="${propio ? `--cl:${color};--os:${color}` : ""}"><input type="color" id="ap-otro" value="${propio ? color : "#1f7a55"}" aria-label="Otro color"><span aria-hidden="true">+</span></label>`;
+}
+$("ap-modo").addEventListener("click", e => { const b = e.target.closest("[data-m]"); if (b) { tema.guardar({ modo: b.dataset.m }); pintarApariencia() } });
+$("ap-color").addEventListener("click", e => { const b = e.target.closest("[data-c]"); if (b) { tema.guardar({ color: b.dataset.c }); pintarApariencia() } });
+$("ap-color").addEventListener("change", e => { if (e.target.id === "ap-otro") { tema.guardar({ color: e.target.value }); pintarApariencia() } });
+pintarApariencia();
+
+// ---------------- Notificaciones push ----------------
+// Cada mañana el servidor avisa de las tareas que vencen dentro de 3 días o mañana (supabase/functions/avisos-tareas).
+const b64u = s => { const b = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)) };
+const esIOS = /iPhone|iPad|iPod/.test(navigator.userAgent), instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+async function pintarPush() {
+  const txt = $("push-txt"), btn = $("push-btn");
+  btn.hidden = true;
+  if (store.demo) return txt.textContent = "Disponible cuando la app está conectada a la base de datos.";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return txt.textContent = esIOS && !instalada
+    ? "En iPhone, primero instala la app: Compartir > Añadir a pantalla de inicio. Luego ábrela desde el icono y vuelve aquí (hace falta iOS 16.4 o posterior)."
+    : "Este navegador no permite notificaciones.";
+  if (Notification.permission === "denied") return txt.textContent = "Las notificaciones están bloqueadas para esta app. Actívalas en los ajustes del móvil.";
+  const reg = await navigator.serviceWorker.ready, sus = await reg.pushManager.getSubscription();
+  txt.textContent = sus ? "Activados: te llegará una notificación cuando a una tarea tuya le queden 3 días o 1 día." : "Recibe una notificación cuando a una tarea tuya le queden 3 días o 1 día, aunque la app esté cerrada.";
+  btn.textContent = sus ? "Desactivar en este móvil" : "Activar avisos"; btn.classList.toggle("primary", !sus); btn.hidden = false;
+}
+$("push-btn").addEventListener("click", async () => {
+  aviso("push-msg", "");
+  try {
+    const reg = await navigator.serviceWorker.ready, sus = await reg.pushManager.getSubscription();
+    if (sus) { await store.borrarPush(sus.endpoint); await sus.unsubscribe() }
+    else {
+      if (await Notification.requestPermission() !== "granted") throw new Error("No has dado permiso para las notificaciones.");
+      const clave = await store.clavePush(); if (!clave) throw new Error("Los avisos aún no están listos en el servidor. Prueba más tarde.");
+      const nueva = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(clave) });
+      await store.guardarPush(nueva, yo.user_id); aviso("push-msg", "Listo. Los avisos llegan por la mañana.");
+    }
+  } catch (err) { aviso("push-msg", errTxt(err), true) }
+  pintarPush();
+});
+
 // ---------------- Hoja "Nuevo gasto" ----------------
 // El importe se escribe con un teclado propio que siempre está a la vista. Con «+» se suman varios importes (ej. dos tickets).
 // Sin categoría se guarda igual (grupo y categoría vacíos) y se le pone luego desde el aviso de Inicio o desde Gastos.
@@ -481,6 +525,7 @@ function abrirHoja(x) {
   $("h-nota").value = x ? x.n || "" : ""; $("h-fecha").value = x ? x.f : iso(new Date());
   $("h-tit").textContent = !x ? "Nuevo gasto" : x.c ? "Cambiar gasto" : "Ponle categoría";
   $("h-cola").textContent = colaN > 1 ? `${colaN - cola.length} de ${colaN}` : "";
+  $("h-del").hidden = !x; $("h-del").textContent = "Borrar"; delete $("h-del").dataset.ok;
   aviso("h-msg", ""); pintarHoja(); pintarFoto(); $("velo").hidden = false; document.body.style.overflow = "hidden";
   $("velo").querySelector(".h-cuerpo").scrollTop = 0;
 }
@@ -489,6 +534,10 @@ function cerrarHoja() { quitarFoto(); $("velo").hidden = true; document.body.sty
 function categorizarPendientes() { cola = sinCategoria().map(x => x.id); colaN = cola.length; const id = cola.shift(); if (id) abrirHoja(data.find(x => x.id === id)) }
 $("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : tab === "tab" ? abrirTarea(null) : abrirHoja());
 $("h-x").addEventListener("click", cerrarHoja);
+$("h-del").addEventListener("click", () => dosToques($("h-del"), async () => {
+  const x = data.find(g => g.id === editId);
+  try { await store.delGasto(x.id); data = data.filter(g => g.id !== x.id); store.borrarFoto(x.a).catch(() => { }); cerrarHoja(); pintar() } catch (err) { aviso("h-msg", "No se ha borrado: " + errTxt(err), true) }
+}));
 $("h-ok").addEventListener("click", async () => {
   const v = totalMonto();
   if (!(v > 0)) return aviso("h-msg", "Escribe el importe con el teclado.", true);

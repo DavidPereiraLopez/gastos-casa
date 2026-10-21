@@ -11,7 +11,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=10">
+<link rel="stylesheet" href="styles.css?v=13">
+<script src="tema.js?v=13"></script>
 </head>
 <body>
 <!--APP-START-->
@@ -179,6 +180,22 @@
       <button class="btn" id="aj-ok" type="button">Guardar cambios</button>
       <p class="toast" id="aj-msg" role="status"></p>
     </section>
+    <section class="card" aria-label="Apariencia">
+      <h2>Apariencia</h2>
+      <p class="hint">Se guarda en este móvil: cada uno puede tener la suya.</p>
+      <span class="hint">Modo</span>
+      <div class="seg" id="ap-modo" role="group" aria-label="Modo">
+        <button type="button" data-m="auto">Automático</button><button type="button" data-m="claro">Claro</button><button type="button" data-m="oscuro">Oscuro</button>
+      </div>
+      <span class="hint">Color principal</span>
+      <div class="colores" id="ap-color" role="group" aria-label="Color principal"></div>
+    </section>
+    <section class="card" aria-label="Avisos en este móvil">
+      <h2>Avisos en este móvil</h2>
+      <p class="hint" id="push-txt"></p>
+      <button class="btn" id="push-btn" type="button" hidden></button>
+      <p class="toast" id="push-msg" role="status"></p>
+    </section>
     <section class="card" aria-label="Familia">
       <h2>Familia</h2>
       <p class="hint">Para que tu pareja entre en este hogar: que cree su cuenta en la app y escriba este código.</p>
@@ -213,7 +230,7 @@
 <div class="velo" id="velo" hidden>
   <div class="hoja hoja-g" role="dialog" aria-modal="true" aria-labelledby="h-tit">
     <div class="asa"></div>
-    <div class="ch"><h2 id="h-tit">Nuevo gasto</h2><span class="hint" id="h-cola"></span><button class="btn sm h-foto" id="h-foto" type="button">📷 Ticket</button><button class="ib" id="h-x" aria-label="Cerrar">✕</button></div>
+    <div class="ch"><h2 id="h-tit">Nuevo gasto</h2><span class="hint" id="h-cola"></span><button class="btn sm h-foto" id="h-foto" type="button">📷 Ticket</button><button class="btn sm danger" id="h-del" type="button" hidden>Borrar</button><button class="ib" id="h-x" aria-label="Cerrar">✕</button></div>
     <input type="file" id="h-file" accept="image/*" hidden>
     <div class="monto" aria-live="polite"><span class="expr" id="h-expr"></span><span class="n" id="h-monto">0</span><span class="e">€</span></div>
     <div class="h-tk" id="h-tk" hidden><button type="button" class="h-th" id="h-th" aria-label="Ver la foto del ticket"><img id="h-thumb" alt=""></button><span class="h-tk-t" id="h-tk-t" role="status"></span><button class="ib" id="h-tk-x" type="button" aria-label="Quitar la foto">✕</button></div>
@@ -294,9 +311,9 @@
 </div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=10"></script>
-<script src="store.js?v=10"></script>
-<script src="ticket.js?v=10"></script>
-<script src="app.js?v=10"></script>
+<script src="config.js?v=13"></script>
+<script src="store.js?v=13"></script>
+<script src="ticket.js?v=13"></script>
+<script src="app.js?v=13"></script>
 </body>
 </html>
