@@ -42,7 +42,9 @@ const corto = r => ({ id: r.id, f: r.fecha, i: Number(r.importe), g: r.grupo, c:
 const colorG = g => { const i = hogar.grupos.findIndex(x => x.g === g); return `var(--c${(i < 0 ? 7 : i % 8) + 1})` };
 const sigla = c => { const p = String(c).replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(w => w.length > 2 || /^\p{Lu}/u.test(w)); return ((p[0] || c)[0] + (p[1] ? p[1][0] : (p[0] || c)[1] || "")).toUpperCase() };
 const ico = (g, c) => `<span class="ico" style="background:${colorG(g)}" aria-hidden="true">${esc(sigla(c))}</span>`;
-const nombres = () => miembros.map(m => m.nombre);
+// personas del hogar: los que tienen cuenta y los apuntados en Más > Familia que aún no se han unido
+const personas = () => (hogar.personas || []).filter(p => p.nombre && !miembros.some(m => m.nombre === p.nombre));
+const nombres = () => [...miembros.map(m => m.nombre), ...personas().map(p => p.nombre)];
 const defDe = n => miembros.find(m => m.nombre === n) || {};
 const nombreMes = k => { const [y, m] = k.split("-"); return new Date(+y, +m - 1, 1).toLocaleDateString("es-ES", { month: "long", year: "numeric" }) };
 const addMes = (k, n) => { const [y, m] = k.split("-"); return ym(new Date(+y, +m - 1 + n, 1)) };
@@ -97,7 +99,7 @@ async function arrancar() {
 }
 async function cargar() {
   const d = await store.cargar();
-  hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || []; eventos = d.eventos || []; tareas = d.tareas || [];
+  hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; hogar.personas = hogar.personas || []; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || []; eventos = d.eventos || []; tareas = d.tareas || [];
 }
 // Gastos fijos: al abrir la app se apuntan los que ya tocaban este mes y faltan
 async function apuntarFijos() {
@@ -149,8 +151,11 @@ function pintarInicio() {
   // Avisos
   const al = [];
   if (esActual) eventosDel(iso(today)).forEach(e => al.push(["info", "◷", `Hoy${e.hora_ini ? " a las " + hm(e.hora_ini) : ""}: <b>${esc(e.titulo)}</b>${e.quien ? " (" + esc(e.quien) + ")" : ""}.`]));
-  if (esActual) tareas.filter(t => t.columna !== "hecho" && t.fecha_limite && t.fecha_limite <= iso(today) && esMia(t)).forEach(t => al.push([t.fecha_limite < iso(today) ? "warn" : "info", "▦",
-    `Tablero: <b>${esc(t.titulo)}</b> ${t.fecha_limite < iso(today) ? "era para el " + fechaCorta(t.fecha_limite) : "es para hoy"}${t.quien ? " (" + esc(t.quien) + ")" : ""}.`]));
+  // tareas tuyas vencidas, de hoy, o a las que quedan 1 o 3 días
+  if (esActual) tareas.filter(t => t.columna !== "hecho" && t.fecha_limite && esMia(t) && (t.fecha_limite <= iso(today) || [1, 3].includes(diasEntre(iso(today), t.fecha_limite)))).forEach(t => {
+    const n = diasEntre(iso(today), t.fecha_limite);
+    al.push([n < 0 ? "warn" : "info", "▦", `Tablero: <b>${esc(t.titulo)}</b> ${n < 0 ? "era para el " + fechaCorta(t.fecha_limite) : n === 0 ? "es para hoy" : n === 1 ? "es para mañana" : "vence en 3 días"}${t.quien ? " (" + esc(t.quien) + ")" : ""}.`]);
+  });
   const porG = {}; mes.forEach(x => porG[x.g] = (porG[x.g] || 0) + x.i);
   Object.entries(hogar.presupuestos).forEach(([g, p]) => {
     p = Number(p); if (!p) return; const v = porG[g] || 0;
@@ -327,6 +332,8 @@ function pintarMas() {
   if (document.activeElement !== $("aj-cu")) $("aj-cu").value = hogar.cuentas.join(", ");
   $("aj-def").innerHTML = miembros.map(m => `<div class="def"><span>${esc(m.nombre)}</span><select class="field" data-u="${m.user_id}" data-f="cuenta_def" aria-label="Cuenta de ${esc(m.nombre)}">${opt(hogar.cuentas, m.cuenta_def)}</select><select class="field" data-u="${m.user_id}" data-f="pago_def" aria-label="Forma de pago de ${esc(m.nombre)}">${opt(PAGOS, m.pago_def)}</select></div>`).join("");
   $("codigo").textContent = hogar.codigo_invitacion;
+  $("personas").innerHTML = [...miembros.map(m => `<li><span><b>${esc(m.nombre)}</b><br><span class="hint">Tiene cuenta${m.user_id === yo.user_id ? " (tú)" : ""}</span></span></li>`),
+    ...personas().map(p => `<li><span><b>${esc(p.nombre)}</b><br><span class="hint">${p.email ? esc(p.email) : "Sin correo"} · aún no se ha unido</span></span><button class="del" type="button" data-pe="${esc(p.nombre)}">Quitar</button></li>`)].join("");
 }
 $("t-fecha").value = iso(today);
 $("tform").addEventListener("submit", async e => {
@@ -385,6 +392,19 @@ $("aj-ok").addEventListener("click", async () => {
     await cargar(); yo = miembros.find(m => m.user_id === yo.user_id) || yo; pintar(); aviso("aj-msg", "Cambios guardados para los dos. Los gastos ya apuntados conservan su grupo y categoría.");
   } catch (err) { aviso("aj-msg", errTxt(err), true) }
 });
+
+async function guardarPersonas(lista, msg) {
+  try { await store.updHogar(hogar.id, { personas: lista }); hogar.personas = lista; pintar(); aviso("pe-msg", msg) } catch (err) { aviso("pe-msg", errTxt(err), true) }
+}
+$("pe-form").addEventListener("submit", e => {
+  e.preventDefault();
+  const nombre = $("pe-nom").value.trim(), email = $("pe-email").value.trim();
+  if (!nombre) return aviso("pe-msg", "Escribe el nombre.", true);
+  if (nombres().includes(nombre)) return aviso("pe-msg", `${nombre} ya está en el hogar.`, true);
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return aviso("pe-msg", "Ese correo no parece válido.", true);
+  e.target.reset(); guardarPersonas([...hogar.personas, { nombre, email: email || null }], `${nombre} ya aparece en «Quién».`);
+});
+$("personas").addEventListener("click", e => { const b = e.target.closest("[data-pe]"); if (b) dosToques(b, () => guardarPersonas(hogar.personas.filter(p => p.nombre !== b.dataset.pe), "Quitada.")) });
 
 // ---------------- Hoja "Nuevo gasto" ----------------
 let monto = "";
@@ -460,9 +480,9 @@ function ocurre(e, d) {
   return d === e.fecha;
 }
 const eventosDel = d => eventos.filter(e => ocurre(e, d)).sort((a, b) => hm(a.hora_ini).localeCompare(hm(b.hora_ini)) || a.titulo.localeCompare(b.titulo));
-const todos = () => miembros.length > 2 ? "Todos" : "Los dos";
+const todos = () => nombres().length > 2 ? "Todos" : "Los dos";
 const quienes = () => [...nombres(), todos()];
-const colorQ = q => { const i = miembros.findIndex(m => m.nombre === q); return i < 0 ? "var(--accent)" : `var(--c${i % 8 + 1})` };
+const colorQ = q => { const i = nombres().indexOf(q); return i < 0 ? "var(--accent)" : `var(--c${i % 8 + 1})` };
 function textoRep(e) {
   if (e.repetir === "no" || !UNI[e.repetir]) return "";
   const n = e.cada || 1, u = UNI[e.repetir];
@@ -599,6 +619,27 @@ $("e-del").addEventListener("click", e => dosToques(e.target, async () => {
 // Tres columnas fijas. Dentro de cada una, las tareas van por "orden"; al mover una se le da un orden entre sus vecinas.
 const COLS = [["pendiente", "Por hacer"], ["haciendo", "Haciendo"], ["hecho", "Hecho"]];
 const nombreCol = c => (COLS.find(x => x[0] === c) || COLS[0])[1];
+const REPS_TA = [["no", "No"], ["diario", "Cada día"], ["semanal", "Cada semana"], ["mensual", "Cada mes"], ["anual", "Cada año"]];
+const UNI_TA = { ...UNI, anual: ["año", "años"] };
+function textoRepTa(t) {
+  if (!t.repetir || t.repetir === "no") return "";
+  const n = t.cada || 1, u = UNI_TA[t.repetir];
+  return (n === 1 ? `Cada ${u[0]}` : `Cada ${n} ${u[1]}`) + (t.hasta ? ` hasta el ${fechaCorta(t.hasta)}` : "");
+}
+// siguiente fecha de una tarea que se repite, a partir de la que tenía (y nunca antes de hoy)
+function siguienteFecha(t) {
+  const n = t.cada || 1, d0 = fechaD(t.fecha_limite || iso(today)), dia = d0.getDate();
+  const paso = k => {
+    const d = new Date(d0);
+    if (t.repetir === "diario") d.setDate(dia + n * k);
+    else if (t.repetir === "semanal") d.setDate(dia + 7 * n * k);
+    else { const meses = (t.repetir === "anual" ? 12 : 1) * n * k; d.setDate(1); d.setMonth(d.getMonth() + meses); d.setDate(Math.min(dia, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())) }
+    return iso(d);
+  };
+  let k = 1, f = paso(k);
+  while (f < iso(today)) f = paso(++k);
+  return t.hasta && f > t.hasta ? null : f;
+}
 const esMia = t => !t.quien || t.quien === yo.nombre || t.quien === todos();
 let taFiltro = "todas";
 const deCol = (c, filtrar) => tareas.filter(t => t.columna === c && (!filtrar || taFiltro === "todas" || esMia(t))).sort((a, b) => a.orden - b.orden || a.titulo.localeCompare(b.titulo));
@@ -610,7 +651,7 @@ function pintarTab() {
     const tarjeta = t => {
       const fl = t.fecha_limite, cls = c === "hecho" || !fl ? "" : fl < hoy ? " bad" : fl === hoy ? " warn" : "";
       const meta = [t.quien ? `<span class="q"><i class="dot" style="background:${colorQ(t.quien)}"></i>${esc(t.quien)}</span>` : "",
-        fl ? `<span class="fl${cls}">${fl === hoy ? "Hoy" : fechaCorta(fl)}</span>` : "", t.nota ? `<span class="nt" title="${esc(t.nota)}">Nota</span>` : ""].filter(Boolean).join("");
+        fl ? `<span class="fl${cls}">${fl === hoy ? "Hoy" : fechaCorta(fl)}</span>` : "", t.repetir && t.repetir !== "no" ? `<span class="rp" title="${esc(textoRepTa(t))}">↻ ${esc(textoRepTa(t))}</span>` : "", t.nota ? `<span class="nt" title="${esc(t.nota)}">Nota</span>` : ""].filter(Boolean).join("");
       return `<li class="ta" draggable="true" data-ta="${t.id}"><button class="ta-b" type="button" data-abrir><span class="t">${esc(t.titulo)}</span>${meta ? `<span class="m">${meta}</span>` : ""}</button>
         <span class="ta-mv">${k > 0 ? `<button type="button" class="ib" data-mv="-1" aria-label="Pasar a ${COLS[k - 1][1]}">‹</button>` : ""}${k < COLS.length - 1 ? `<button type="button" class="ib" data-mv="1" aria-label="Pasar a ${COLS[k + 1][1]}">›</button>` : ""}</span></li>`;
     };
@@ -627,8 +668,15 @@ async function moverTarea(t, col, antesDe) {
   else orden = resto.length ? resto[resto.length - 1].orden + 1 : 0;
   const c = { columna: col, orden, hecho: col === "hecho" ? (t.hecho || new Date().toISOString()) : null };
   if (t.columna === col && t.orden === orden) return;
+  // al terminar una tarea que se repite, aparece la siguiente en Por hacer; la terminada queda como hecha sin repetirse
+  const sig = col === "hecho" && t.columna !== "hecho" && t.repetir && t.repetir !== "no" ? siguienteFecha(t) : undefined;
+  if (sig !== undefined) c.repetir = "no";
+  const serie = { titulo: t.titulo, nota: t.nota, quien: t.quien, repetir: t.repetir, cada: t.cada, hasta: t.hasta };
   Object.assign(t, c); pintarTab(); pintarInicio(); // se ve al momento; si falla, se recarga lo guardado
-  try { ponTa(await store.updTarea(t.id, c)) } catch (err) { await cargar(); pintar() }
+  try {
+    ponTa(await store.updTarea(t.id, c));
+    if (sig) { const p = deCol("pendiente"); ponTa(await store.addTarea({ ...serie, fecha_limite: sig, columna: "pendiente", orden: p.length ? p[p.length - 1].orden + 1 : 0, hecho: null })); pintarTab(); pintarInicio() }
+  } catch (err) { await cargar(); pintar() }
 }
 const ponTa = r => { tareas = tareas.filter(x => x.id !== r.id); tareas.push(r) };
 $("ta-filtro").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (b) { taFiltro = b.dataset.f; pintarTab() } });
@@ -657,17 +705,22 @@ $("tablero").addEventListener("drop", e => {
 });
 
 // Hoja de la tarea
-const ft = { col: "pendiente", q: "" };
+const ft = { col: "pendiente", q: "", rep: "no" };
 let tareaEd = null;
 function chipsTa() {
   $("ta-col").innerHTML = COLS.map(([v, l]) => `<button type="button" class="chip" data-k="col" data-v="${v}" aria-pressed="${ft.col === v}">${l}</button>`).join("");
+  $("ta-rep").innerHTML = REPS_TA.map(([v, l]) => `<button type="button" class="chip" data-k="rep" data-v="${v}" aria-pressed="${ft.rep === v}">${l}</button>`).join("");
+  $("ta-rep-op").hidden = ft.rep === "no";
+  if (UNI_TA[ft.rep]) $("ta-cada-u").textContent = UNI_TA[ft.rep][+$("ta-cada").value === 1 ? 0 : 1];
+  $("ta-hasta").min = $("ta-fecha").value;
   $("ta-q").innerHTML = ["", ...quienes()].map(q => `<button type="button" class="chip" data-k="q" data-v="${esc(q)}" aria-pressed="${ft.q === q}">${q ? esc(q) : "Sin asignar"}</button>`).join("");
 }
 function abrirTarea(t, col) {
   tareaEd = t;
   $("ta-tit").textContent = t ? "Cambiar tarea" : "Nueva tarea";
   $("ta-titulo").value = t ? t.titulo : ""; $("ta-nota").value = t && t.nota || ""; $("ta-fecha").value = t && t.fecha_limite || "";
-  Object.assign(ft, { col: t ? t.columna : col || "pendiente", q: t ? t.quien || "" : yo.nombre });
+  $("ta-cada").value = t && t.cada || 1; $("ta-hasta").value = t && t.hasta || "";
+  Object.assign(ft, { col: t ? t.columna : col || "pendiente", q: t ? t.quien || "" : yo.nombre, rep: t && t.repetir || "no" });
   $("ta-del").hidden = !t; $("ta-del").textContent = "Borrar"; delete $("ta-del").dataset.ok;
   aviso("ta-msg", ""); chipsTa();
   $("velo-ta").hidden = false; document.body.style.overflow = "hidden";
@@ -680,10 +733,14 @@ $("velo-ta").addEventListener("click", e => {
   const c = e.target.closest(".chip"); if (c) { ft[c.dataset.k] = c.dataset.v; chipsTa() }
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("velo-ta").hidden) cerrarTa() });
+["ta-cada", "ta-fecha"].forEach(id => $(id).addEventListener("input", chipsTa));
 $("ta-form").addEventListener("submit", async e => {
   e.preventDefault();
-  const f = { titulo: $("ta-titulo").value.trim(), nota: $("ta-nota").value.trim() || null, quien: ft.q || null, fecha_limite: $("ta-fecha").value || null };
+  const f = { titulo: $("ta-titulo").value.trim(), nota: $("ta-nota").value.trim() || null, quien: ft.q || null, fecha_limite: $("ta-fecha").value || null,
+    repetir: ft.rep, cada: ft.rep === "no" ? 1 : Math.max(1, Math.min(52, parseInt($("ta-cada").value) || 1)), hasta: ft.rep === "no" ? null : $("ta-hasta").value || null };
   if (!f.titulo) return aviso("ta-msg", "Escribe qué hay que hacer.", true);
+  if (f.repetir !== "no" && !f.fecha_limite) f.fecha_limite = iso(today); // una tarea que se repite necesita su primer día
+  if (f.hasta && f.hasta < f.fecha_limite) return aviso("ta-msg", "«Hasta el día» tiene que ser igual o posterior al día de la tarea.", true);
   $("ta-ok").disabled = true;
   try {
     if (tareaEd) {

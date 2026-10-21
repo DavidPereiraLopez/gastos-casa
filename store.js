@@ -120,12 +120,13 @@
     }
     function tareasDemo() {
       const d = n => iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n));
-      const ta = (orden, f) => ({ id: uid(), nota: null, quien: null, fecha_limite: null, hecho: null, orden, ...f });
+      const ta = (orden, f) => ({ id: uid(), nota: null, quien: null, fecha_limite: null, hecho: null, repetir: "no", cada: 1, hasta: null, orden, ...f });
       return [ta(1, { titulo: "Pedir cita ITV del coche", columna: "pendiente", quien: "David", fecha_limite: d(10) }),
         ta(2, { titulo: "Comprar disfraces de Halloween", columna: "pendiente", quien: "Pareja", fecha_limite: d(-1) }),
         ta(3, { titulo: "Mirar campamento de verano", columna: "pendiente", quien: "Los dos", nota: "Comparar precios con el del año pasado" }),
         ta(1, { titulo: "Cambiar tarifa de la luz", columna: "haciendo", quien: "David", nota: "Pedir oferta a 2 compañías" }),
         ta(2, { titulo: "Ordenar el trastero", columna: "haciendo", quien: "Los dos" }),
+        ta(4, { titulo: "Revisar el saldo de la cuenta común", columna: "pendiente", quien: "David", fecha_limite: d(3), repetir: "mensual", cada: 1 }),
         ta(1, { titulo: "Renovar DNI de las niñas", columna: "hecho", quien: "Pareja", hecho: new Date().toISOString() })];
     }
     function eventosDemo() {
