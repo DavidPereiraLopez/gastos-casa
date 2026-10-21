@@ -4,8 +4,8 @@
 (function () {
   const iso = d => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10) };
   const GRUPOS0 = [
-    { g: "CASA", cats: ["Supermercado", "Luz y gas", "Agua", "Internet y móvil", "Alquiler o hipoteca", "Mantenimiento"] },
-    { g: "NIÑAS", cats: ["Colegio", "Extraescolares", "Ropa", "Médico"] },
+    { g: "CASA", icono: "🏠", cats: ["Supermercado", "Luz y gas", "Agua", "Internet y móvil", "Alquiler o hipoteca", "Mantenimiento"], ci: { Supermercado: { icono: "🛒" } } },
+    { g: "NIÑAS", icono: "🎒", color: "#d55181", cats: ["Colegio", "Extraescolares", "Ropa", "Médico"] },
     { g: "TRANSPORTE", cats: ["Gasolina", "Transporte público", "Coche"] },
     { g: "OCIO", cats: ["Comer fuera", "Suscripciones", "Vacaciones"] },
     { g: "SALUD", cats: ["Farmacia", "Médico"] },

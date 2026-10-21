@@ -40,9 +40,16 @@ const errTxt = e => {
   return m;
 };
 const corto = r => ({ id: r.id, f: r.fecha, i: Number(r.importe), g: r.grupo, c: r.categoria, n: r.nota, q: r.quien, p: r.forma_pago, cu: r.cuenta, rid: r.recurrente_id, a: r.archivo });
-const colorG = g => { const i = hogar.grupos.findIndex(x => x.g === g); return `var(--c${(i < 0 ? 7 : i % 8) + 1})` };
+// colores e iconos: cada grupo puede tener color y emoji propios (si no, uno de la paleta);
+// cada categoría hereda el color de su grupo en tonos alternos, salvo que tenga uno propio (grupo.ci[categoría])
+const grupoDe = g => hogar.grupos.find(x => x.g === g);
+const colorG = g => { const G = grupoDe(g); if (G && G.color) return G.color; const i = hogar.grupos.indexOf(G); return `var(--c${(i < 0 ? 7 : i % 8) + 1})` };
+const propioC = (g, c) => { const G = grupoDe(g); return (G && G.ci && G.ci[c]) || {} };
+const colorC = (g, c) => { const G = grupoDe(g), p = propioC(g, c); if (p.color) return p.color; const t = [0, 22, 11, 33][Math.max(0, G ? G.cats.indexOf(c) : 0) % 4]; return t ? `color-mix(in srgb, ${colorG(g)}, #000 ${t}%)` : colorG(g) };
+const icoG = g => { const G = grupoDe(g) || {}; return `<span class="ico${G.icono ? " emo" : ""}" style="background:${colorG(g)}" aria-hidden="true">${esc(G.icono || sigla(g))}</span>` };
+const etqG = g => { const G = grupoDe(g); return (G && G.icono ? G.icono + " " : "") + nomG(g) };
 const sigla = c => { const p = String(c).replace(/[^\p{L}\p{N} ]/gu, "").split(/\s+/).filter(w => w.length > 2 || /^\p{Lu}/u.test(w)); return ((p[0] || c)[0] + (p[1] ? p[1][0] : (p[0] || c)[1] || "")).toUpperCase() };
-const ico = (g, c) => c ? `<span class="ico" style="background:${colorG(g)}" aria-hidden="true">${esc(sigla(c))}</span>` : '<span class="ico sin" aria-hidden="true">?</span>';
+const ico = (g, c) => { if (!c) return '<span class="ico sin" aria-hidden="true">?</span>'; const e = propioC(g, c).icono; return `<span class="ico${e ? " emo" : ""}" style="background:${colorC(g, c)}" aria-hidden="true">${esc(e || sigla(c))}</span>` };
 // gastos guardados sin categoría: grupo y categoría vacíos
 const SIN = "Sin categoría", nomG = g => g || SIN;
 // personas del hogar: los que tienen cuenta y los apuntados en Más > Familia que aún no se han unido
@@ -198,7 +205,7 @@ function pintarInicio() {
   const R = 52, C = 2 * Math.PI * R, gap = orden.length > 1 ? 2.5 : 0; let off = 0;
   const arcos = orden.map(([g, v]) => { const len = v / (total || 1) * C; const s = `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${colorG(g)}" stroke-width="18" stroke-dasharray="${Math.max(0, len - gap)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"><title>${esc(nomG(g))}: ${fmt(v)}</title></circle>`; off += len; return s }).join("");
   $("dona").innerHTML = `<svg viewBox="0 0 140 140" role="img" aria-label="Gasto por grupo">${total ? arcos : `<circle r="${R}" cx="70" cy="70" fill="none" stroke="var(--line)" stroke-width="18"/>`}<text x="70" y="70" text-anchor="middle" class="ctr">${fmt0(total)}</text><text x="70" y="86" text-anchor="middle" class="ctr2">${orden.length} grupos</text></svg>`;
-  $("leyenda").innerHTML = orden.map(([g, v]) => `<button class="lg" data-g="${esc(g)}"><span class="dot" style="background:${colorG(g)}"></span><span class="nm">${esc(nomG(g))} <small>${Math.round(v / total * 100)} %</small></span><span class="v">${fmt(v)}</span></button>`).join("") || '<p class="hint">Sin gastos este mes.</p>';
+  $("leyenda").innerHTML = orden.map(([g, v]) => `<button class="lg" data-g="${esc(g)}"><span class="dot" style="background:${colorG(g)}"></span><span class="nm">${esc(etqG(g))} <small>${Math.round(v / total * 100)} %</small></span><span class="v">${fmt(v)}</span></button>`).join("") || '<p class="hint">Sin gastos este mes.</p>';
 
   // Comparativas a la misma fecha
   const corte = esActual ? today : new Date(vy, vm, 0);
@@ -311,7 +318,7 @@ function pintarPres() {
   $("p-tot").textContent = `${fmt0(totG)} de ${fmt0(totP)}`;
   $("pres").innerHTML = hogar.grupos.map(G => {
     const v = porG[G.g] || 0, p = Number(hogar.presupuestos[G.g]) || 0, [cls, txt] = estadoPres(v, p);
-    return `<div class="pr">${ico(G.g, G.g)}<span class="row1"><span>${esc(G.g)}</span><input inputmode="decimal" data-g="${esc(G.g)}" value="${p || ""}" placeholder="Sin límite" aria-label="Presupuesto de ${esc(G.g)} en euros"></span>
+    return `<div class="pr">${icoG(G.g)}<span class="row1"><span>${esc(G.g)}</span><input inputmode="decimal" data-g="${esc(G.g)}" value="${p || ""}" placeholder="Sin límite" aria-label="Presupuesto de ${esc(G.g)} en euros"></span>
       <div class="track"><div class="fill ${cls}" style="width:${p ? Math.min(100, v / p * 100) : 0}%"></div></div>
       <span class="row3"><span>${fmt(v)} gastado</span><span class="st ${cls}">${txt}</span></span></div>`
   }).join("");
@@ -351,6 +358,8 @@ function pintarMas() {
   const opt = (l, v) => l.map(x => `<option${x === v ? " selected" : ""}>${esc(x)}</option>`).join("");
   $("csv-cu").innerHTML = opt(hogar.cuentas, $("csv-cu").value || yo.cuenta_def); $("csv-q").innerHTML = opt(nombres(), $("csv-q").value || yo.nombre);
   if (document.activeElement !== $("aj-cat")) $("aj-cat").value = hogar.grupos.map(x => `${x.g}: ${x.cats.join(", ")}`).join("\n");
+  if (!estCambiado) est = Object.fromEntries(hogar.grupos.map(G => [G.g, { color: G.color, icono: G.icono, ci: JSON.parse(JSON.stringify(G.ci || {})) }]));
+  if (!$("aj-col").contains(document.activeElement)) pintarEstilos();
   if (document.activeElement !== $("aj-cu")) $("aj-cu").value = hogar.cuentas.join(", ");
   $("aj-def").innerHTML = miembros.map(m => `<div class="def"><span>${esc(m.nombre)}</span><select class="field" data-u="${m.user_id}" data-f="cuenta_def" aria-label="Cuenta de ${esc(m.nombre)}">${opt(hogar.cuentas, m.cuenta_def)}</select><select class="field" data-u="${m.user_id}" data-f="pago_def" aria-label="Forma de pago de ${esc(m.nombre)}">${opt(PAGOS, m.pago_def)}</select></div>`).join("");
   $("codigo").textContent = hogar.codigo_invitacion;
@@ -403,7 +412,39 @@ $("csv").addEventListener("change", async e => {
   catch (err) { aviso("csvmsg", "No se ha importado: " + errTxt(err), true) }
 });
 const listaComas = v => [...new Set(v.split(",").map(s => s.trim()).filter(Boolean))];
-function leerGrupos(t) { const out = []; t.split(/\n/).forEach(l => { l = l.trim(); if (!l) return; const i = l.indexOf(":"), g = (i < 0 ? l : l.slice(0, i)).trim(), cats = i < 0 ? [] : listaComas(l.slice(i + 1)); if (g && !out.some(x => x.g === g)) out.push({ g, cats: cats.length ? cats : ["General"] }) }); return out }
+function leerGrupos(t) {
+  const out = []; t.split(/\n/).forEach(l => { l = l.trim(); if (!l) return; const i = l.indexOf(":"), g = (i < 0 ? l : l.slice(0, i)).trim(), cats = i < 0 ? [] : listaComas(l.slice(i + 1)); if (g && !out.some(x => x.g === g)) out.push({ g, cats: cats.length ? cats : ["General"] }) });
+  // conserva el color y el icono de cada grupo y categoría (van por nombre: si se renombra, vuelve al de serie)
+  return out.map(G => { const e = est[G.g] || {}, ci = {}; G.cats.forEach(c => { const p = e.ci && e.ci[c]; if (p && (p.color || p.icono)) ci[c] = { ...(p.color && { color: p.color }), ...(p.icono && { icono: p.icono }) } });
+    return { ...G, ...(e.color && { color: e.color }), ...(e.icono && { icono: e.icono }), ...(Object.keys(ci).length && { ci }) } });
+}
+// Editor de colores e iconos (Más > Grupos): borrador local hasta pulsar «Guardar cambios»
+let est = {}, estCambiado = false;
+const hexDe = c => { if (/^#[0-9a-f]{6}$/i.test(c || "")) return c; const m = getComputedStyle(document.documentElement).getPropertyValue((c.match(/--c\d/) || ["--c7"])[0]).trim(); return /^#[0-9a-f]{6}$/i.test(m) ? m : "#6250d6" };
+const unEmoji = v => { v = v.trim(); if (!v) return ""; try { return [...new Intl.Segmenter("es", { granularity: "grapheme" }).segment(v)][0].segment } catch (e) { return Array.from(v)[0] } };
+function pintarEstilos() {
+  const abiertos = new Set([...document.querySelectorAll("#aj-col details[open]")].map(d => d.dataset.g));
+  const viejo = hogar; hogar = { ...hogar, grupos: leerGrupos($("aj-cat").value) }; // vista previa con el borrador
+  const fila = (g, c, nom) => { const p = c ? (est[g] && est[g].ci && est[g].ci[c]) || {} : est[g] || {}, d = `data-g="${esc(g)}"${c ? ` data-c="${esc(c)}"` : ""}`;
+    return `<div class="gfila">${c ? ico(g, c) : icoG(g)}<span class="nm">${esc(nom)}</span>
+      <label class="color otro sw" title="Color" style="--cl:${c ? colorC(g, c) : colorG(g)}"><input type="color" ${d} data-t="color" value="${hexDe(p.color || colorG(g))}" aria-label="Color de ${esc(nom)}"></label>
+      <input class="field emo" ${d} data-t="icono" value="${esc(p.icono || "")}" placeholder="😀" aria-label="Icono de ${esc(nom)}">
+      <button type="button" class="del" ${d} data-t="quitar" ${p.color || p.icono ? "" : "hidden"} title="Volver al de serie">↺</button></div>` };
+  $("aj-col").innerHTML = hogar.grupos.map(G => `<details class="gcol" data-g="${esc(G.g)}"${abiertos.has(G.g) ? " open" : ""}><summary>${icoG(G.g)}<span class="nm"><b>${esc(G.g)}</b><br><span class="hint">${G.cats.length} categorías</span></span><span class="tira">${G.cats.slice(0, 6).map(c => `<i style="background:${colorC(G.g, c)}"></i>`).join("")}</span></summary>
+    ${fila(G.g, "", "Todo el grupo")}<span class="hint">Las categorías toman el color del grupo en distintos tonos; puedes darle a cualquiera uno propio.</span>${G.cats.map(c => fila(G.g, c, c)).join("")}</details>`).join("");
+  hogar = viejo;
+}
+function cambiarEstilo(el) {
+  const g = el.dataset.g, c = el.dataset.c, t = el.dataset.t; estCambiado = true;
+  const e = est[g] ||= {}, p = c ? ((e.ci ||= {})[c] ||= {}) : e;
+  if (t === "quitar") { delete p.color; delete p.icono }
+  else if (t === "icono") { const v = unEmoji(el.value); if (v) p.icono = v; else delete p.icono; el.value = v }
+  else p.color = el.value;
+  pintarEstilos();
+}
+$("aj-col").addEventListener("change", e => { if (e.target.dataset.t) cambiarEstilo(e.target) });
+$("aj-col").addEventListener("click", e => { const b = e.target.closest('[data-t="quitar"]'); if (b) cambiarEstilo(b) });
+$("aj-cat").addEventListener("input", () => pintarEstilos());
 $("aj-ok").addEventListener("click", async () => {
   const grupos = leerGrupos($("aj-cat").value), cuentas = listaComas($("aj-cu").value);
   if (!grupos.length) return aviso("aj-msg", "Deja al menos un grupo.", true);
@@ -413,7 +454,7 @@ $("aj-ok").addEventListener("click", async () => {
     await store.updHogar(hogar.id, { grupos, cuentas, saldos });
     const cambios = {}; document.querySelectorAll("#aj-def select").forEach(s => { (cambios[s.dataset.u] ||= {})[s.dataset.f] = s.value });
     for (const [u, c] of Object.entries(cambios)) { if (!cuentas.includes(c.cuenta_def)) c.cuenta_def = cuentas[0] || null; await store.updMiembro(u, c) }
-    await cargar(); yo = miembros.find(m => m.user_id === yo.user_id) || yo; pintar(); aviso("aj-msg", "Cambios guardados para los dos. Los gastos ya apuntados conservan su grupo y categoría.");
+    estCambiado = false; await cargar(); yo = miembros.find(m => m.user_id === yo.user_id) || yo; pintar(); aviso("aj-msg", "Cambios guardados para los dos. Los gastos ya apuntados conservan su grupo y categoría.");
   } catch (err) { aviso("aj-msg", errTxt(err), true) }
 });
 
@@ -508,7 +549,7 @@ document.addEventListener("keydown", e => {
 function chips(id, lista, key) { $(id).innerHTML = lista.map(v => `<button type="button" class="chip" data-k="${key}" data-v="${esc(v)}" aria-pressed="${v === sel[key]}">${esc(v)}</button>`).join("") }
 function pintarHoja() {
   if (!hogar.grupos.some(x => x.g === sel.g)) sel.g = hogar.grupos[0].g;
-  chips("h-grupos", hogar.grupos.map(x => x.g), "g");
+  $("h-grupos").innerHTML = hogar.grupos.map(G => `<button type="button" class="chip gch" data-k="g" data-v="${esc(G.g)}" style="--gc:${colorG(G.g)}" aria-pressed="${G.g === sel.g}">${G.icono ? esc(G.icono) : '<i class="dot" aria-hidden="true"></i>'} ${esc(G.g)}</button>`).join("");
   const G = hogar.grupos.find(x => x.g === sel.g);
   if (!G.cats.includes(sel.c)) sel.c = "";
   $("h-cats").innerHTML = G.cats.map(c => `<button type="button" class="cat" data-c="${esc(c)}" aria-pressed="${c === sel.c}">${ico(G.g, c)}<span>${esc(c)}</span></button>`).join("");
