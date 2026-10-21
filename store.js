@@ -67,6 +67,9 @@
       addTarea: async f => ok(await sb.from("tareas").insert(f).select().single()),
       updTarea: async (id, c) => ok(await sb.from("tareas").update(c).eq("id", id).select().single()),
       delTareas: async ids => ok(await sb.from("tareas").delete().in("id", ids)),
+      // notificaciones push: cada móvil guarda su suscripción, ligada al usuario
+      guardarPush: async (sus, uid) => { const j = sus.toJSON(); ok(await sb.from("push_suscripciones").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_id: uid }, { onConflict: "endpoint" })) },
+      borrarPush: async endpoint => ok(await sb.from("push_suscripciones").delete().eq("endpoint", endpoint)),
       escuchar: (hogarId, fn) => {
         if (canal) return;
         let t = null; const avisar = () => { clearTimeout(t); t = setTimeout(fn, 400) };
@@ -178,6 +181,7 @@
       updTarea: async (id, c) => { const t = db.tareas.find(x => x.id === id); Object.assign(t, c); save(); return clone(t) },
       delTareas: async ids => { db.tareas = db.tareas.filter(x => !ids.includes(x.id)); save() },
       urlTicket: async t => { if (!archivos[t.archivo]) throw new Error("En la demo las fotos solo se ven mientras la página está abierta."); return archivos[t.archivo] },
+      guardarPush: async () => { }, borrarPush: async () => { },
       escuchar: () => { }, dejarDeEscuchar: () => { }
     };
   }
