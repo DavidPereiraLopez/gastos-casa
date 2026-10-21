@@ -703,5 +703,9 @@ $("ta-del").addEventListener("click", e => dosToques(e.target, async () => {
 }));
 
 store.onAuth(arrancar);
-if ("serviceWorker" in navigator && !store.demo) navigator.serviceWorker.register("sw.js").catch(() => { });
+if ("serviceWorker" in navigator && !store.demo) {
+  // al llegar una versión nueva de la app, recarga una vez para usarla (solo si ya había una versión instalada)
+  if (navigator.serviceWorker.controller) { let r = false; navigator.serviceWorker.addEventListener("controllerchange", () => { if (!r) { r = true; location.reload() } }) }
+  navigator.serviceWorker.register("sw.js").catch(() => { });
+}
 })();
