@@ -24,7 +24,7 @@ const RULES = [[/mercadona|carrefour|lidl|dia |aldi|eroski|alcampo|consum|ahorra
  [/farmacia/i, "SALUD", "Farmacia"],
  [/clinica|dentist|sanitas|adeslas|optica/i, "SALUD", "Médico"]];
 
-let yo = null, hogar = null, miembros = [], data = [], tickets = [], fijos = [], eventos = [];
+let yo = null, hogar = null, miembros = [], data = [], tickets = [], fijos = [], eventos = [], tareas = [];
 let mesVista = ym(today), vista = "mes";
 const sel = { g: "", c: "", q: "", p: "Tarjeta", cu: "" };
 
@@ -97,7 +97,7 @@ async function arrancar() {
 }
 async function cargar() {
   const d = await store.cargar();
-  hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || []; eventos = d.eventos || [];
+  hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || []; eventos = d.eventos || []; tareas = d.tareas || [];
 }
 // Gastos fijos: al abrir la app se apuntan los que ya tocaban este mes y faltan
 async function apuntarFijos() {
@@ -115,9 +115,9 @@ async function apuntarFijos() {
 let tab = "inicio";
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => irA(b.dataset.t)));
 function irA(t) {
-  tab = t; ["inicio", "movs", "cal", "pres", "mas"].forEach(x => $("t-" + x).hidden = x !== t);
-  $("top-mes").hidden = t === "cal"; // el calendario tiene su propio mes y deja ir al futuro
-  $("fab").setAttribute("aria-label", t === "cal" ? "Añadir al calendario" : "Apuntar un gasto");
+  tab = t; ["inicio", "movs", "cal", "tab", "pres", "mas"].forEach(x => $("t-" + x).hidden = x !== t);
+  $("top-mes").hidden = t === "cal" || t === "tab"; // el calendario tiene su propio mes y deja ir al futuro; el tablero no va por meses
+  $("fab").setAttribute("aria-label", t === "cal" ? "Añadir al calendario" : t === "tab" ? "Nueva tarea" : "Apuntar un gasto");
   document.querySelectorAll(".tab").forEach(b => b.dataset.t === t ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   scrollTo(0, 0);
 }
@@ -128,7 +128,7 @@ function pintar() {
   $("hola").textContent = "Hola, " + yo.nombre;
   $("mes-t").textContent = nombreMes(mesVista);
   $("mes-sig").disabled = mesVista >= ym(today);
-  pintarInicio(); pintarMovs(); pintarCal(); pintarPres(); pintarMas();
+  pintarInicio(); pintarMovs(); pintarCal(); pintarTab(); pintarPres(); pintarMas();
 }
 
 // ---------------- Inicio ----------------
@@ -149,6 +149,8 @@ function pintarInicio() {
   // Avisos
   const al = [];
   if (esActual) eventosDel(iso(today)).forEach(e => al.push(["info", "◷", `Hoy${e.hora_ini ? " a las " + hm(e.hora_ini) : ""}: <b>${esc(e.titulo)}</b>${e.quien ? " (" + esc(e.quien) + ")" : ""}.`]));
+  if (esActual) tareas.filter(t => t.columna !== "hecho" && t.fecha_limite && t.fecha_limite <= iso(today) && esMia(t)).forEach(t => al.push([t.fecha_limite < iso(today) ? "warn" : "info", "▦",
+    `Tablero: <b>${esc(t.titulo)}</b> ${t.fecha_limite < iso(today) ? "era para el " + fechaCorta(t.fecha_limite) : "es para hoy"}${t.quien ? " (" + esc(t.quien) + ")" : ""}.`]));
   const porG = {}; mes.forEach(x => porG[x.g] = (porG[x.g] || 0) + x.i);
   Object.entries(hogar.presupuestos).forEach(([g, p]) => {
     p = Number(p); if (!p) return; const v = porG[g] || 0;
@@ -419,7 +421,7 @@ $("velo").addEventListener("click", e => {
 });
 function abrirHoja() { monto = ""; pintaMonto(); sel.c = ""; $("h-nota").value = ""; $("h-fecha").value = iso(new Date()); aviso("h-msg", ""); pintarHoja(); $("velo").hidden = false; document.body.style.overflow = "hidden" }
 function cerrarHoja() { $("velo").hidden = true; document.body.style.overflow = "" }
-$("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : abrirHoja());
+$("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : tab === "tab" ? abrirTarea(null) : abrirHoja());
 $("h-x").addEventListener("click", cerrarHoja);
 $("h-ok").addEventListener("click", async () => {
   const v = parseImporte(monto);
@@ -591,6 +593,113 @@ $("e-del").addEventListener("click", e => dosToques(e.target, async () => {
     else await cortarSerie(ev, dia);
     cerrarEv(); pintarCal(); pintarInicio();
   } catch (err) { aviso("e-msg", "No se ha borrado: " + errTxt(err), true) }
+}));
+
+// ---------------- Tablero Kanban ----------------
+// Tres columnas fijas. Dentro de cada una, las tareas van por "orden"; al mover una se le da un orden entre sus vecinas.
+const COLS = [["pendiente", "Por hacer"], ["haciendo", "Haciendo"], ["hecho", "Hecho"]];
+const nombreCol = c => (COLS.find(x => x[0] === c) || COLS[0])[1];
+const esMia = t => !t.quien || t.quien === yo.nombre || t.quien === todos();
+let taFiltro = "todas";
+const deCol = (c, filtrar) => tareas.filter(t => t.columna === c && (!filtrar || taFiltro === "todas" || esMia(t))).sort((a, b) => a.orden - b.orden || a.titulo.localeCompare(b.titulo));
+function pintarTab() {
+  $("ta-filtro").innerHTML = [["todas", "Todas"], ["mias", "Mías"]].map(([v, l]) => `<button type="button" data-f="${v}" aria-pressed="${taFiltro === v}">${l}</button>`).join("");
+  const hoy = iso(today);
+  $("tablero").innerHTML = COLS.map(([c, nom], k) => {
+    const lista = deCol(c, true);
+    const tarjeta = t => {
+      const fl = t.fecha_limite, cls = c === "hecho" || !fl ? "" : fl < hoy ? " bad" : fl === hoy ? " warn" : "";
+      const meta = [t.quien ? `<span class="q"><i class="dot" style="background:${colorQ(t.quien)}"></i>${esc(t.quien)}</span>` : "",
+        fl ? `<span class="fl${cls}">${fl === hoy ? "Hoy" : fechaCorta(fl)}</span>` : "", t.nota ? `<span class="nt" title="${esc(t.nota)}">Nota</span>` : ""].filter(Boolean).join("");
+      return `<li class="ta" draggable="true" data-ta="${t.id}"><button class="ta-b" type="button" data-abrir><span class="t">${esc(t.titulo)}</span>${meta ? `<span class="m">${meta}</span>` : ""}</button>
+        <span class="ta-mv">${k > 0 ? `<button type="button" class="ib" data-mv="-1" aria-label="Pasar a ${COLS[k - 1][1]}">‹</button>` : ""}${k < COLS.length - 1 ? `<button type="button" class="ib" data-mv="1" aria-label="Pasar a ${COLS[k + 1][1]}">›</button>` : ""}</span></li>`;
+    };
+    return `<section class="col card" data-col="${c}" aria-label="${nom}"><div class="ch"><h2>${nom} <span class="n">${lista.length}</span></h2>${c === "hecho" && lista.length ? `<button class="del" type="button" id="ta-limpiar">Borrar las hechas</button>` : `<button class="ib" type="button" data-nueva="${c}" aria-label="Nueva tarea en ${nom}">+</button>`}</div>
+      <ul class="tas">${lista.map(tarjeta).join("") || `<li class="vacio">${c === "pendiente" ? "Nada pendiente. Toca + para apuntar algo." : c === "haciendo" ? "Pasa aquí lo que estéis haciendo." : "Aquí irá lo terminado."}</li>`}</ul></section>`;
+  }).join("");
+}
+// Mueve una tarea a una columna, delante de otra tarea (o al final; las que pasan a Hecho van arriba)
+async function moverTarea(t, col, antesDe) {
+  const resto = deCol(col).filter(x => x.id !== t.id);
+  let orden;
+  if (antesDe) { const i = resto.findIndex(x => x.id === antesDe); const ant = i > 0 ? resto[i - 1].orden : resto[i].orden - 2; orden = (ant + resto[i].orden) / 2 }
+  else if (col === "hecho" && t.columna !== "hecho") orden = resto.length ? resto[0].orden - 1 : 0;
+  else orden = resto.length ? resto[resto.length - 1].orden + 1 : 0;
+  const c = { columna: col, orden, hecho: col === "hecho" ? (t.hecho || new Date().toISOString()) : null };
+  if (t.columna === col && t.orden === orden) return;
+  Object.assign(t, c); pintarTab(); pintarInicio(); // se ve al momento; si falla, se recarga lo guardado
+  try { ponTa(await store.updTarea(t.id, c)) } catch (err) { await cargar(); pintar() }
+}
+const ponTa = r => { tareas = tareas.filter(x => x.id !== r.id); tareas.push(r) };
+$("ta-filtro").addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (b) { taFiltro = b.dataset.f; pintarTab() } });
+$("ta-add").addEventListener("click", () => abrirTarea(null));
+$("tablero").addEventListener("click", e => {
+  if (e.target.id === "ta-limpiar") return dosToques(e.target, async () => {
+    const ids = deCol("hecho", true).map(t => t.id);
+    try { await store.delTareas(ids); tareas = tareas.filter(t => !ids.includes(t.id)); pintarTab() } catch (err) { e.target.textContent = errTxt(err) }
+  });
+  const nueva = e.target.closest("[data-nueva]"); if (nueva) return abrirTarea(null, nueva.dataset.nueva);
+  const li = e.target.closest(".ta"); if (!li) return;
+  const t = tareas.find(x => x.id === li.dataset.ta);
+  const mv = e.target.closest("[data-mv]");
+  if (mv) { const k = COLS.findIndex(x => x[0] === t.columna) + +mv.dataset.mv; return moverTarea(t, COLS[k][0]) }
+  if (e.target.closest("[data-abrir]")) abrirTarea(t);
+});
+// Arrastrar y soltar (ordenador). En el móvil se mueven con las flechas o desde la hoja de la tarea.
+let arrastrada = null;
+$("tablero").addEventListener("dragstart", e => { const li = e.target.closest(".ta"); if (!li) return; arrastrada = li.dataset.ta; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", arrastrada); li.classList.add("arr") });
+$("tablero").addEventListener("dragend", () => { arrastrada = null; document.querySelectorAll(".col.sobre, .ta.arr").forEach(x => x.classList.remove("sobre", "arr")) });
+$("tablero").addEventListener("dragover", e => { const col = e.target.closest(".col"); if (!col || !arrastrada) return; e.preventDefault(); document.querySelectorAll(".col.sobre").forEach(x => x !== col && x.classList.remove("sobre")); col.classList.add("sobre") });
+$("tablero").addEventListener("drop", e => {
+  const col = e.target.closest(".col"); if (!col || !arrastrada) return; e.preventDefault();
+  const t = tareas.find(x => x.id === arrastrada), sobre = e.target.closest(".ta");
+  moverTarea(t, col.dataset.col, sobre && sobre.dataset.ta !== t.id ? sobre.dataset.ta : null);
+});
+
+// Hoja de la tarea
+const ft = { col: "pendiente", q: "" };
+let tareaEd = null;
+function chipsTa() {
+  $("ta-col").innerHTML = COLS.map(([v, l]) => `<button type="button" class="chip" data-k="col" data-v="${v}" aria-pressed="${ft.col === v}">${l}</button>`).join("");
+  $("ta-q").innerHTML = ["", ...quienes()].map(q => `<button type="button" class="chip" data-k="q" data-v="${esc(q)}" aria-pressed="${ft.q === q}">${q ? esc(q) : "Sin asignar"}</button>`).join("");
+}
+function abrirTarea(t, col) {
+  tareaEd = t;
+  $("ta-tit").textContent = t ? "Cambiar tarea" : "Nueva tarea";
+  $("ta-titulo").value = t ? t.titulo : ""; $("ta-nota").value = t && t.nota || ""; $("ta-fecha").value = t && t.fecha_limite || "";
+  Object.assign(ft, { col: t ? t.columna : col || "pendiente", q: t ? t.quien || "" : yo.nombre });
+  $("ta-del").hidden = !t; $("ta-del").textContent = "Borrar"; delete $("ta-del").dataset.ok;
+  aviso("ta-msg", ""); chipsTa();
+  $("velo-ta").hidden = false; document.body.style.overflow = "hidden";
+  if (!t) $("ta-titulo").focus();
+}
+function cerrarTa() { $("velo-ta").hidden = true; document.body.style.overflow = "" }
+$("ta-x").addEventListener("click", cerrarTa);
+$("velo-ta").addEventListener("click", e => {
+  if (e.target === $("velo-ta")) return cerrarTa();
+  const c = e.target.closest(".chip"); if (c) { ft[c.dataset.k] = c.dataset.v; chipsTa() }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("velo-ta").hidden) cerrarTa() });
+$("ta-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const f = { titulo: $("ta-titulo").value.trim(), nota: $("ta-nota").value.trim() || null, quien: ft.q || null, fecha_limite: $("ta-fecha").value || null };
+  if (!f.titulo) return aviso("ta-msg", "Escribe qué hay que hacer.", true);
+  $("ta-ok").disabled = true;
+  try {
+    if (tareaEd) {
+      ponTa(await store.updTarea(tareaEd.id, f));
+      const t = tareas.find(x => x.id === tareaEd.id); if (t.columna !== ft.col) await moverTarea(t, ft.col);
+    } else {
+      const resto = deCol(ft.col);
+      ponTa(await store.addTarea({ ...f, columna: ft.col, orden: resto.length ? resto[resto.length - 1].orden + 1 : 0, hecho: ft.col === "hecho" ? new Date().toISOString() : null }));
+    }
+    cerrarTa(); pintarTab(); pintarInicio();
+  } catch (err) { aviso("ta-msg", "No se ha guardado: " + errTxt(err), true) }
+  finally { $("ta-ok").disabled = false }
+});
+$("ta-del").addEventListener("click", e => dosToques(e.target, async () => {
+  try { await store.delTareas([tareaEd.id]); tareas = tareas.filter(x => x.id !== tareaEd.id); cerrarTa(); pintarTab(); pintarInicio() }
+  catch (err) { aviso("ta-msg", "No se ha borrado: " + errTxt(err), true) }
 }));
 
 store.onAuth(arrancar);

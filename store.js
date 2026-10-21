@@ -28,15 +28,16 @@
       unirse: async (codigo, nombre) => ok(await sb.rpc("unirse_hogar", { p_codigo: codigo, p_nombre_persona: nombre })),
       cargar: async () => {
         const desde = iso(new Date(new Date().getFullYear() - 2, 0, 1)); // este año y los dos anteriores
-        const [h, ms, gs, ts, rs, es] = await Promise.all([
+        const [h, ms, gs, ts, rs, es, tas] = await Promise.all([
           sb.from("hogares").select("*").single(),
           sb.from("miembros").select("*").order("creado"),
           sb.from("gastos").select("*").gte("fecha", desde).order("fecha", { ascending: false }).limit(20000),
           sb.from("tickets").select("*").order("fecha_compra", { ascending: false }),
           sb.from("recurrentes").select("*").order("dia"),
-          sb.from("eventos").select("*").order("fecha")]);
-        // si la tabla del calendario aún no existe, la app sigue funcionando sin él
-        return { hogar: ok(h), miembros: ok(ms), gastos: ok(gs), tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data };
+          sb.from("eventos").select("*").order("fecha"),
+          sb.from("tareas").select("*").order("orden")]);
+        // si las tablas del calendario o del tablero aún no existen, la app sigue funcionando sin ellos
+        return { hogar: ok(h), miembros: ok(ms), gastos: ok(gs), tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data, tareas: tas.error ? [] : tas.data };
       },
       addGastos: async filas => ok(await sb.from("gastos").insert(filas).select()),
       // gastos fijos: el índice único (recurrente_id, periodo) evita duplicados si los dos móviles lo intentan a la vez
@@ -62,11 +63,14 @@
       delEvento: async id => ok(await sb.from("eventos").delete().eq("id", id)),
       // días cambiados aparte de una serie, desde una fecha (al cortar la serie en "este y los siguientes")
       delCopiasDesde: async (serieId, desde) => ok(await sb.from("eventos").delete().eq("serie_id", serieId).gte("fecha", desde)),
+      addTarea: async f => ok(await sb.from("tareas").insert(f).select().single()),
+      updTarea: async (id, c) => ok(await sb.from("tareas").update(c).eq("id", id).select().single()),
+      delTareas: async ids => ok(await sb.from("tareas").delete().in("id", ids)),
       escuchar: (hogarId, fn) => {
         if (canal) return;
         let t = null; const avisar = () => { clearTimeout(t); t = setTimeout(fn, 400) };
         canal = sb.channel("hogar-" + hogarId);
-        ["gastos", "tickets", "recurrentes", "eventos"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
+        ["gastos", "tickets", "recurrentes", "eventos", "tareas"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
         canal.subscribe();
       },
       dejarDeEscuchar: () => { if (canal) { sb.removeChannel(canal); canal = null } }
@@ -112,7 +116,17 @@
       const tickets = [{ id: uid(), producto: "Lavadora Bosch Serie 4", tienda: "MediaMarkt", fecha_compra: yAgo(2, 10), anos_garantia: 3, importe: 449, archivo: null },
         { id: uid(), producto: "Portátil Lenovo IdeaPad", tienda: "El Corte Inglés", fecha_compra: yAgo(1, 2), anos_garantia: 3, importe: 699, archivo: null },
         { id: uid(), producto: "Cafetera Krups", tienda: "Amazon", fecha_compra: yAgo(3, 6), anos_garantia: 3, importe: 89.9, archivo: null }];
-      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo() };
+      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo(), tareas: tareasDemo() };
+    }
+    function tareasDemo() {
+      const d = n => iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n));
+      const ta = (orden, f) => ({ id: uid(), nota: null, quien: null, fecha_limite: null, hecho: null, orden, ...f });
+      return [ta(1, { titulo: "Pedir cita ITV del coche", columna: "pendiente", quien: "David", fecha_limite: d(10) }),
+        ta(2, { titulo: "Comprar disfraces de Halloween", columna: "pendiente", quien: "Pareja", fecha_limite: d(-1) }),
+        ta(3, { titulo: "Mirar campamento de verano", columna: "pendiente", quien: "Los dos", nota: "Comparar precios con el del año pasado" }),
+        ta(1, { titulo: "Cambiar tarifa de la luz", columna: "haciendo", quien: "David", nota: "Pedir oferta a 2 compañías" }),
+        ta(2, { titulo: "Ordenar el trastero", columna: "haciendo", quien: "Los dos" }),
+        ta(1, { titulo: "Renovar DNI de las niñas", columna: "hecho", quien: "Pareja", hecho: new Date().toISOString() })];
     }
     function eventosDemo() {
       const d = n => iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n));
@@ -129,6 +143,7 @@
     try { db = JSON.parse(localStorage.getItem(KEY)) } catch (e) { }
     if (!db || !db.hogar) db = semilla();
     if (!db.eventos) db.eventos = eventosDemo();
+    if (!db.tareas) db.tareas = tareasDemo();
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) { } };
     const archivos = {}; // fotos de tickets de la demo: solo mientras la página está abierta
     const clone = x => JSON.parse(JSON.stringify(x));
@@ -156,6 +171,9 @@
       updEvento: async (id, c) => { const e = db.eventos.find(x => x.id === id); Object.assign(e, c); save(); return clone(e) },
       delEvento: async id => { db.eventos = db.eventos.filter(x => x.id !== id && x.serie_id !== id); save() },
       delCopiasDesde: async (serieId, desde) => { db.eventos = db.eventos.filter(x => !(x.serie_id === serieId && x.fecha >= desde)); save() },
+      addTarea: async f => { const t = { id: uid(), columna: "pendiente", orden: 0, hecho: null, ...f }; db.tareas.push(t); save(); return clone(t) },
+      updTarea: async (id, c) => { const t = db.tareas.find(x => x.id === id); Object.assign(t, c); save(); return clone(t) },
+      delTareas: async ids => { db.tareas = db.tareas.filter(x => !ids.includes(x.id)); save() },
       urlTicket: async t => { if (!archivos[t.archivo]) throw new Error("En la demo las fotos solo se ven mientras la página está abierta."); return archivos[t.archivo] },
       escuchar: () => { }, dejarDeEscuchar: () => { }
     };
