@@ -24,7 +24,7 @@ const RULES = [[/mercadona|carrefour|lidl|dia |aldi|eroski|alcampo|consum|ahorra
  [/farmacia/i, "SALUD", "Farmacia"],
  [/clinica|dentist|sanitas|adeslas|optica/i, "SALUD", "Médico"]];
 
-let yo = null, hogar = null, miembros = [], data = [], tickets = [], fijos = [];
+let yo = null, hogar = null, miembros = [], data = [], tickets = [], fijos = [], eventos = [];
 let mesVista = ym(today), vista = "mes";
 const sel = { g: "", c: "", q: "", p: "Tarjeta", cu: "" };
 
@@ -97,7 +97,7 @@ async function arrancar() {
 }
 async function cargar() {
   const d = await store.cargar();
-  hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || [];
+  hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || []; eventos = d.eventos || [];
 }
 // Gastos fijos: al abrir la app se apuntan los que ya tocaban este mes y faltan
 async function apuntarFijos() {
@@ -115,7 +115,9 @@ async function apuntarFijos() {
 let tab = "inicio";
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => irA(b.dataset.t)));
 function irA(t) {
-  tab = t; ["inicio", "movs", "pres", "mas"].forEach(x => $("t-" + x).hidden = x !== t);
+  tab = t; ["inicio", "movs", "cal", "pres", "mas"].forEach(x => $("t-" + x).hidden = x !== t);
+  $("top-mes").hidden = t === "cal"; // el calendario tiene su propio mes y deja ir al futuro
+  $("fab").setAttribute("aria-label", t === "cal" ? "Añadir al calendario" : "Apuntar un gasto");
   document.querySelectorAll(".tab").forEach(b => b.dataset.t === t ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   scrollTo(0, 0);
 }
@@ -126,7 +128,7 @@ function pintar() {
   $("hola").textContent = "Hola, " + yo.nombre;
   $("mes-t").textContent = nombreMes(mesVista);
   $("mes-sig").disabled = mesVista >= ym(today);
-  pintarInicio(); pintarMovs(); pintarPres(); pintarMas();
+  pintarInicio(); pintarMovs(); pintarCal(); pintarPres(); pintarMas();
 }
 
 // ---------------- Inicio ----------------
@@ -146,6 +148,7 @@ function pintarInicio() {
 
   // Avisos
   const al = [];
+  if (esActual) eventosDel(iso(today)).forEach(e => al.push(["info", "◷", `Hoy${e.hora_ini ? " a las " + hm(e.hora_ini) : ""}: <b>${esc(e.titulo)}</b>${e.quien ? " (" + esc(e.quien) + ")" : ""}.`]));
   const porG = {}; mes.forEach(x => porG[x.g] = (porG[x.g] || 0) + x.i);
   Object.entries(hogar.presupuestos).forEach(([g, p]) => {
     p = Number(p); if (!p) return; const v = porG[g] || 0;
@@ -416,7 +419,7 @@ $("velo").addEventListener("click", e => {
 });
 function abrirHoja() { monto = ""; pintaMonto(); sel.c = ""; $("h-nota").value = ""; $("h-fecha").value = iso(new Date()); aviso("h-msg", ""); pintarHoja(); $("velo").hidden = false; document.body.style.overflow = "hidden" }
 function cerrarHoja() { $("velo").hidden = true; document.body.style.overflow = "" }
-$("fab").addEventListener("click", abrirHoja);
+$("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : abrirHoja());
 $("h-x").addEventListener("click", cerrarHoja);
 $("h-ok").addEventListener("click", async () => {
   const v = parseImporte(monto);
@@ -429,6 +432,166 @@ $("h-ok").addEventListener("click", async () => {
   } catch (err) { aviso("h-msg", "No se ha guardado: " + errTxt(err), true) }
   finally { $("h-ok").disabled = false }
 });
+
+// ---------------- Calendario compartido ----------------
+// Cada evento se guarda una vez; sus repeticiones se calculan aquí. Un día cambiado aparte es una copia con serie_id
+// y ese día queda en las excepciones de la serie.
+const fechaD = s => new Date(s + "T12:00");
+const sumaDias = (s, n) => { const d = fechaD(s); d.setDate(d.getDate() + n); return iso(d) };
+const diasEntre = (a, b) => Math.round((fechaD(b) - fechaD(a)) / 864e5);
+const dow = s => (fechaD(s).getDay() + 6) % 7 + 1; // 1 = lunes ... 7 = domingo
+const DSEM = ["L", "M", "X", "J", "V", "S", "D"], DSEM_L = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
+const REPS = [["no", "No se repite"], ["diario", "Cada día"], ["semanal", "Cada semana"], ["mensual", "Cada mes"]];
+const UNI = { diario: ["día", "días"], semanal: ["semana", "semanas"], mensual: ["mes", "meses"] };
+const hm = t => t ? String(t).slice(0, 5) : "";
+const fechaCorta = s => fechaD(s).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: s.slice(0, 4) == today.getFullYear() ? undefined : "numeric" }).replace(".", "");
+const diasDe = e => e.dias_semana && e.dias_semana.length ? e.dias_semana.map(Number) : [dow(e.fecha)];
+function ocurre(e, d) {
+  if (d < e.fecha || (e.hasta && d > e.hasta) || (e.excepciones || []).includes(d)) return false;
+  const n = e.cada || 1;
+  if (e.repetir === "diario") return diasEntre(e.fecha, d) % n === 0;
+  if (e.repetir === "semanal") { if (!diasDe(e).includes(dow(d))) return false; const lun = s => sumaDias(s, 1 - dow(s)); return Math.round(diasEntre(lun(e.fecha), lun(d)) / 7) % n === 0 }
+  if (e.repetir === "mensual") {
+    const [y0, m0, d0] = e.fecha.split("-").map(Number), [y, m, dd] = d.split("-").map(Number);
+    return ((y - y0) * 12 + m - m0) % n === 0 && dd === Math.min(d0, new Date(y, m, 0).getDate()); // día 31 → último día de los meses cortos
+  }
+  return d === e.fecha;
+}
+const eventosDel = d => eventos.filter(e => ocurre(e, d)).sort((a, b) => hm(a.hora_ini).localeCompare(hm(b.hora_ini)) || a.titulo.localeCompare(b.titulo));
+const todos = () => miembros.length > 2 ? "Todos" : "Los dos";
+const quienes = () => [...nombres(), todos()];
+const colorQ = q => { const i = miembros.findIndex(m => m.nombre === q); return i < 0 ? "var(--accent)" : `var(--c${i % 8 + 1})` };
+function textoRep(e) {
+  if (e.repetir === "no" || !UNI[e.repetir]) return "";
+  const n = e.cada || 1, u = UNI[e.repetir];
+  let t = n === 1 ? `Cada ${u[0]}` : `Cada ${n} ${u[1]}`;
+  if (e.repetir === "semanal") t += ` (${diasDe(e).sort().map(i => DSEM_L[i - 1]).join(", ")})`;
+  if (e.repetir === "mensual") t += `, el día ${+e.fecha.slice(8)}`;
+  return t + (e.hasta ? ` hasta el ${fechaCorta(e.hasta)}` : ", sin fin");
+}
+const horario = e => e.hora_ini ? hm(e.hora_ini) + (e.hora_fin ? "–" + hm(e.hora_fin) : "") : "Todo el día";
+
+let calMes = ym(today), calDia = iso(today);
+$("cal-ant").addEventListener("click", () => { calMes = addMes(calMes, -1); pintarCal() });
+$("cal-sig").addEventListener("click", () => { calMes = addMes(calMes, 1); pintarCal() });
+$("cal-hoy").addEventListener("click", () => { calMes = ym(today); calDia = iso(today); pintarCal() });
+$("cal-grid").addEventListener("click", e => { const b = e.target.closest(".cd"); if (!b) return; calDia = b.dataset.d; if (!calDia.startsWith(calMes)) calMes = calDia.slice(0, 7); pintarCal() });
+$("cal-add").addEventListener("click", () => abrirEvento(null, calDia));
+function pintarCal() {
+  $("cal-t").textContent = nombreMes(calMes);
+  const ini = calMes + "-01", desde = sumaDias(ini, 1 - dow(ini));
+  const [y, m] = calMes.split("-").map(Number), fin = iso(new Date(y, m, 0)), hasta = sumaDias(fin, 7 - dow(fin)), hoy = iso(today);
+  let h = "";
+  for (let d = desde; d <= hasta; d = sumaDias(d, 1)) {
+    const evs = eventosDel(d), pts = [...new Set(evs.map(e => colorQ(e.quien)))].slice(0, 4).map(c => `<i style="background:${c}"></i>`).join("");
+    const etq = fechaD(d).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" }) + (evs.length ? `: ${evs.length} ${evs.length === 1 ? "cosa" : "cosas"}` : "");
+    h += `<button class="cd${d.startsWith(calMes) ? "" : " fuera"}${d === hoy ? " hoy" : ""}" role="gridcell" data-d="${d}" aria-selected="${d === calDia}" aria-label="${etq}"><span class="n">${+d.slice(8)}</span><span class="pts">${pts}</span></button>`;
+  }
+  $("cal-grid").innerHTML = h;
+  $("cal-leg").innerHTML = quienes().map(q => `<span><i class="dot" style="background:${colorQ(q)}"></i>${esc(q)}</span>`).join("");
+  const t = fechaD(calDia).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
+  $("cal-dia-t").textContent = (calDia === hoy ? "Hoy, " : "") + t;
+  const evs = eventosDel(calDia);
+  $("cal-evs").innerHTML = evs.map(e => `<li><button class="ev" data-e="${e.id}" type="button"><span class="barra" style="background:${colorQ(e.quien)}"></span><span class="h">${horario(e)}</span><span><span class="t">${esc(e.titulo)}</span><span class="s">${[esc(e.quien || ""), esc(textoRep(e)), esc(e.nota || "")].filter(Boolean).join(" · ")}</span></span></button></li>`).join("")
+    || `<li class="vacio">Nada apuntado este día. Toca Añadir para poner una cita, un turno o una tarea.</li>`;
+}
+$("cal-evs").addEventListener("click", e => { const b = e.target.closest("[data-e]"); if (b) abrirEvento(eventos.find(x => x.id === b.dataset.e), calDia) });
+
+// Hoja del evento
+const fe = { q: "", rep: "no", dias: [], alc: "solo" };
+let editando = null; // { ev, dia } al cambiar algo que ya existe
+function chipsEv(id, lista, key, multi) { $(id).innerHTML = lista.map(([v, l]) => `<button type="button" class="chip" data-k="${key}" data-v="${v}" aria-pressed="${multi ? fe[key].includes(v) : fe[key] === v}">${esc(l)}</button>`).join("") }
+function pintarHojaEv() {
+  const serie = editando && editando.ev.repetir !== "no";
+  $("e-alc-w").hidden = !serie;
+  if (serie) chipsEv("e-alc", [["solo", "Solo este día"], ["siguientes", "Este y los siguientes"], ["todo", "Toda la serie"]], "alc");
+  chipsEv("e-q", quienes().map(q => [q, q]), "q");
+  chipsEv("e-rep", REPS, "rep");
+  chipsEv("e-dias", DSEM.map((l, i) => [String(i + 1), l]), "dias", true);
+  // cambiar solo un día no toca la repetición
+  document.querySelector(".e-rep-w").hidden = serie && fe.alc === "solo";
+  document.querySelector(".e-rep-op").hidden = fe.rep === "no";
+  $("e-dias-w").hidden = fe.rep !== "semanal";
+  $("e-cada-u").textContent = UNI[fe.rep] ? UNI[fe.rep][+$("e-cada").value === 1 ? 0 : 1] : "";
+  document.querySelectorAll(".e-hora").forEach(l => l.hidden = $("e-todo").checked);
+  $("e-hasta").min = $("e-fecha").value;
+}
+function abrirEvento(ev, dia) {
+  editando = ev ? { ev, dia } : null;
+  const x = ev || { titulo: "", hora_ini: null, hora_fin: null, quien: yo.nombre, nota: "", repetir: "no", cada: 1, dias_semana: [], hasta: null };
+  $("e-tit").textContent = ev ? "Cambiar" : "Nuevo en el calendario";
+  $("e-titulo").value = x.titulo; $("e-fecha").value = dia; $("e-nota").value = x.nota || "";
+  $("e-todo").checked = !x.hora_ini; $("e-ini").value = hm(x.hora_ini); $("e-fin").value = hm(x.hora_fin);
+  $("e-cada").value = x.cada || 1; $("e-hasta").value = x.hasta || "";
+  Object.assign(fe, { q: x.quien || yo.nombre, rep: x.repetir, dias: ev ? diasDe(x).map(String) : [String(dow(dia))], alc: "solo" });
+  $("e-del").hidden = !ev; $("e-del").textContent = ev && ev.repetir !== "no" ? "Borrar solo este día" : "Borrar"; delete $("e-del").dataset.ok;
+  aviso("e-msg", ""); pintarHojaEv();
+  $("velo-ev").hidden = false; document.body.style.overflow = "hidden";
+  if (!ev) $("e-titulo").focus();
+}
+function cerrarEv() { $("velo-ev").hidden = true; document.body.style.overflow = "" }
+$("e-x").addEventListener("click", cerrarEv);
+$("velo-ev").addEventListener("click", e => {
+  if (e.target === $("velo-ev")) return cerrarEv();
+  const c = e.target.closest(".chip"); if (!c) return;
+  const k = c.dataset.k, v = c.dataset.v;
+  if (k === "dias") fe.dias = fe.dias.includes(v) ? fe.dias.filter(x => x !== v) : [...fe.dias, v];
+  else fe[k] = v;
+  if (k === "alc" && editando) $("e-del").textContent = { solo: "Borrar solo este día", siguientes: "Borrar este y los siguientes", todo: "Borrar toda la serie" }[v];
+  pintarHojaEv();
+});
+["e-todo", "e-cada", "e-fecha"].forEach(id => $(id).addEventListener("input", pintarHojaEv));
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("velo-ev").hidden) cerrarEv() });
+
+function leerEv() {
+  const f = { titulo: $("e-titulo").value.trim(), fecha: $("e-fecha").value, nota: $("e-nota").value.trim() || null, quien: fe.q || null,
+    hora_ini: $("e-todo").checked ? null : $("e-ini").value || null, hora_fin: $("e-todo").checked ? null : $("e-fin").value || null,
+    repetir: fe.rep, cada: Math.max(1, Math.min(52, parseInt($("e-cada").value) || 1)), dias_semana: [], hasta: $("e-hasta").value || null };
+  if (!f.titulo) throw new Error("Escribe qué es.");
+  if (!f.fecha) throw new Error("Elige el día.");
+  if (!f.hora_ini) f.hora_fin = null;
+  if (f.hora_fin && f.hora_fin < f.hora_ini) throw new Error("La hora de fin es anterior a la de inicio.");
+  if (f.repetir === "semanal") f.dias_semana = (fe.dias.length ? fe.dias.map(Number) : [dow(f.fecha)]).sort();
+  if (f.repetir === "no") { f.cada = 1; f.hasta = null }
+  if (f.hasta && f.hasta < f.fecha) throw new Error("«Hasta el día» tiene que ser igual o posterior al primer día.");
+  return f;
+}
+const ponEv = r => { eventos = eventos.filter(x => x.id !== r.id); eventos.push(r) };
+async function cortarSerie(ev, dia) { // la serie termina el día anterior; las copias sueltas desde ese día sobran
+  await store.delCopiasDesde(ev.id, dia); eventos = eventos.filter(x => !(x.serie_id === ev.id && x.fecha >= dia));
+  ponEv(await store.updEvento(ev.id, { hasta: sumaDias(dia, -1) }));
+}
+$("e-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  let f; try { f = leerEv() } catch (err) { return aviso("e-msg", err.message, true) }
+  $("e-ok").disabled = true;
+  try {
+    const ev = editando && editando.ev, dia = editando && editando.dia;
+    if (!ev) ponEv(await store.addEvento(f));
+    else if (ev.repetir === "no") ponEv(await store.updEvento(ev.id, f));
+    else if (fe.alc === "solo") {
+      ponEv(await store.updEvento(ev.id, { excepciones: [...new Set([...(ev.excepciones || []), dia])] }));
+      ponEv(await store.addEvento({ ...f, repetir: "no", cada: 1, dias_semana: [], hasta: null, serie_id: ev.id }));
+    } else if (fe.alc === "siguientes" && dia > ev.fecha) { await cortarSerie(ev, dia); ponEv(await store.addEvento(f)) }
+    else { // toda la serie: si se ha movido el día, se mueve toda la serie lo mismo
+      const delta = diasEntre(dia, f.fecha), fecha = sumaDias(ev.fecha, delta);
+      if (f.hasta && f.hasta < fecha) throw new Error("«Hasta el día» queda antes del inicio de la serie.");
+      if (f.repetir === "semanal" && delta % 7) f.dias_semana = f.dias_semana.map(d => (d - 1 + delta % 7 + 7) % 7 + 1).sort();
+      ponEv(await store.updEvento(ev.id, { ...f, fecha, excepciones: (ev.excepciones || []).map(x => sumaDias(x, delta)) }));
+    }
+    calDia = f.fecha; calMes = f.fecha.slice(0, 7); cerrarEv(); pintarCal(); pintarInicio();
+  } catch (err) { aviso("e-msg", "No se ha guardado: " + errTxt(err), true) }
+  finally { $("e-ok").disabled = false }
+});
+$("e-del").addEventListener("click", e => dosToques(e.target, async () => {
+  const { ev, dia } = editando;
+  try {
+    if (ev.repetir === "no" || fe.alc === "todo" || (fe.alc === "siguientes" && dia <= ev.fecha)) { await store.delEvento(ev.id); eventos = eventos.filter(x => x.id !== ev.id && x.serie_id !== ev.id) }
+    else if (fe.alc === "solo") ponEv(await store.updEvento(ev.id, { excepciones: [...new Set([...(ev.excepciones || []), dia])] }));
+    else await cortarSerie(ev, dia);
+    cerrarEv(); pintarCal(); pintarInicio();
+  } catch (err) { aviso("e-msg", "No se ha borrado: " + errTxt(err), true) }
+}));
 
 store.onAuth(arrancar);
 if ("serviceWorker" in navigator && !store.demo) navigator.serviceWorker.register("sw.js").catch(() => { });

@@ -7,6 +7,7 @@ App web instalable (PWA) para apuntar y analizar los gastos de casa entre los do
 - `store.js`: guarda los datos en Supabase; si `config.js` no está rellenado, funciona en modo demo (solo en ese navegador).
 - `config.js`: dirección del proyecto de Supabase y su clave pública (anon key).
 - `supabase/schema.sql`: tablas y reglas de seguridad. Cada hogar solo ve sus propios datos.
+- `supabase/calendario.sql`: la tabla del calendario compartido, para añadirla a una base que ya tenía `schema.sql`.
 - `sw.js`, `manifest.webmanifest`, iconos: para instalarla en el móvil.
 - `build-demo.py`: genera la página de demostración.
 
