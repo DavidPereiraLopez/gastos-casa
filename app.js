@@ -93,7 +93,7 @@ async function arrancar() {
     await cargar();
     sel.q = yo.nombre; sel.p = yo.pago_def || "Tarjeta"; sel.cu = yo.cuenta_def || hogar.cuentas[0] || ""; sel.g = hogar.grupos[0].g;
     $("demo").hidden = !store.demo;
-    mostrar("v-app"); pintar();
+    mostrar("v-app"); pintar(); pintarPush().catch(() => { });
     await apuntarFijos();
     store.escuchar(hogar.id, async () => { await cargar(); pintar() });
   } catch (err) { mostrar("v-login"); aviso("l-err", errTxt(err), true) }
@@ -416,6 +416,37 @@ $("pe-form").addEventListener("submit", e => {
   e.target.reset(); guardarPersonas([...hogar.personas, { nombre, email: email || null }], `${nombre} ya aparece en «Quién».`);
 });
 $("personas").addEventListener("click", e => { const b = e.target.closest("[data-pe]"); if (b) dosToques(b, () => guardarPersonas(hogar.personas.filter(p => p.nombre !== b.dataset.pe), "Quitada.")) });
+
+// ---------------- Notificaciones push ----------------
+// Cada mañana el servidor avisa de las tareas que vencen dentro de 3 días o mañana (supabase/functions/avisos-tareas).
+const b64u = s => { const b = atob((s + "=".repeat((4 - s.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(b, c => c.charCodeAt(0)) };
+const esIOS = /iPhone|iPad|iPod/.test(navigator.userAgent), instalada = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+async function pintarPush() {
+  const txt = $("push-txt"), btn = $("push-btn");
+  btn.hidden = true;
+  if (store.demo) return txt.textContent = "Disponible cuando la app está conectada a la base de datos.";
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) return txt.textContent = esIOS && !instalada
+    ? "En iPhone, primero instala la app: Compartir > Añadir a pantalla de inicio. Luego ábrela desde el icono y vuelve aquí (hace falta iOS 16.4 o posterior)."
+    : "Este navegador no permite notificaciones.";
+  if (Notification.permission === "denied") return txt.textContent = "Las notificaciones están bloqueadas para esta app. Actívalas en los ajustes del móvil.";
+  const reg = await navigator.serviceWorker.ready, sus = await reg.pushManager.getSubscription();
+  txt.textContent = sus ? "Activados: te llegará una notificación cuando a una tarea tuya le queden 3 días o 1 día." : "Recibe una notificación cuando a una tarea tuya le queden 3 días o 1 día, aunque la app esté cerrada.";
+  btn.textContent = sus ? "Desactivar en este móvil" : "Activar avisos"; btn.classList.toggle("primary", !sus); btn.hidden = false;
+}
+$("push-btn").addEventListener("click", async () => {
+  aviso("push-msg", "");
+  try {
+    const reg = await navigator.serviceWorker.ready, sus = await reg.pushManager.getSubscription();
+    if (sus) { await store.borrarPush(sus.endpoint); await sus.unsubscribe() }
+    else {
+      if (await Notification.requestPermission() !== "granted") throw new Error("No has dado permiso para las notificaciones.");
+      const clave = await store.clavePush(); if (!clave) throw new Error("Los avisos aún no están listos en el servidor. Prueba más tarde.");
+      const nueva = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(clave) });
+      await store.guardarPush(nueva, yo.user_id); aviso("push-msg", "Listo. Los avisos llegan por la mañana.");
+    }
+  } catch (err) { aviso("push-msg", errTxt(err), true) }
+  pintarPush();
+});
 
 // ---------------- Hoja "Nuevo gasto" ----------------
 // El importe se escribe con un teclado propio que siempre está a la vista. Con «+» se suman varios importes (ej. dos tickets).

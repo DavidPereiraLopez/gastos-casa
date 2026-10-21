@@ -10,6 +10,7 @@ App web instalable (PWA) para apuntar y analizar los gastos de casa entre los do
 - `supabase/calendario.sql`: la tabla del calendario compartido, para añadirla a una base que ya tenía `schema.sql`.
 - `supabase/tablero.sql`: la tabla del tablero Kanban (tareas por hacer, haciendo y hechas), para añadirla a una base que ya tenía `schema.sql`.
 - `supabase/tareas-repetir.sql`: tareas que se repiten y personas del hogar que aún no tienen cuenta.
+- `supabase/avisos-push.sql`, `supabase/functions/avisos-tareas` y `supabase/avisos-cron.sql`: notificaciones push cuando a una tarea le quedan 3 días o 1 día. La primera vez, la función crea sus claves VAPID y las guarda en Supabase Vault; no hay que configurar secretos.
 - `sw.js`, `manifest.webmanifest`, iconos: para instalarla en el móvil.
 - `build-demo.py`: genera la página de demostración.
 
