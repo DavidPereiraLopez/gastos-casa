@@ -11,8 +11,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=17">
-<script src="tema.js?v=17"></script>
+<link rel="stylesheet" href="styles.css?v=18">
+<script src="tema.js?v=18"></script>
 </head>
 <body>
 <!--APP-START-->
@@ -118,6 +118,28 @@
     <div class="tablero" id="tablero"></div>
   </main>
 
+  <!-- Lista de la compra -->
+  <main class="vista" id="t-compra" hidden>
+    <section class="card cp-super" aria-label="Supermercado">
+      <div class="ch"><h2>🛒 Supermercado</h2><span class="hint" id="cp-super-n"></span></div>
+      <form class="cp-add" id="cp-super-f" autocomplete="off">
+        <input class="field" id="cp-super-in" placeholder="Añadir: leche, 2 kg de naranjas…" aria-label="Añadir al supermercado" enterkeyhint="done" autocapitalize="sentences">
+        <button class="btn primary" type="submit">Añadir</button>
+      </form>
+      <div class="cp-sug" id="cp-super-sug" aria-label="Sugerencias"></div>
+      <div class="cp-lista" id="cp-super-l"></div>
+    </section>
+    <section class="card cp-otras" aria-label="Otras compras">
+      <div class="ch"><h2>Otras compras</h2><span class="hint">Farmacia, ferretería, papelería…</span></div>
+      <form class="cp-add" id="cp-otras-f" autocomplete="off">
+        <input class="field" id="cp-otras-in" placeholder="Añadir otra cosa…" aria-label="Añadir a otras compras" enterkeyhint="done" autocapitalize="sentences">
+        <button class="btn" type="submit">Añadir</button>
+      </form>
+      <div class="cp-sug" id="cp-otras-sug" aria-label="Sugerencias"></div>
+      <div class="cp-lista" id="cp-otras-l"></div>
+    </section>
+  </main>
+
   <!-- Presupuestos y gastos fijos -->
   <main class="vista" id="t-pres" hidden>
     <section class="card">
@@ -150,6 +172,7 @@
 
   <!-- Más -->
   <main class="vista" id="t-mas" hidden>
+    <button class="card ir-pres" id="ir-pres" type="button"><span><b>Presupuesto y gastos fijos</b><br><span class="hint">Cuánto queréis gastar en cada grupo, y alquiler, colegio, luz…</span></span><span aria-hidden="true">›</span></button>
     <section class="card" aria-label="Tickets con garantía">
       <h2>Tickets con garantía</h2>
       <p class="hint">Haz una foto al ticket o sube el PDF. En España, lo comprado desde 2022 tiene 3 años de garantía por ley.</p>
@@ -240,10 +263,10 @@
   <div class="in">
     <button class="tab" data-t="inicio" aria-current="page"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>Inicio</button>
     <button class="tab" data-t="movs"><svg viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="3.5" cy="6" r="1"/><circle cx="3.5" cy="12" r="1"/><circle cx="3.5" cy="18" r="1"/></svg>Gastos</button>
-    <button class="tab" data-t="cal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Calendario</button>
+    <button class="tab" data-t="compra"><span class="tab-i"><svg viewBox="0 0 24 24"><path d="M3 4h2.5l2.2 10.5a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg><span class="tab-n" id="cp-badge" hidden></span></span>Compra</button>
     <button class="fab" id="fab" aria-label="Apuntar un gasto">+</button>
+    <button class="tab" data-t="cal"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>Calendario</button>
     <button class="tab" data-t="tab"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/></svg>Tablero</button>
-    <button class="tab" data-t="pres"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6 6"/></svg>Presupuesto</button>
     <button class="tab" data-t="mas"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>Más</button>
   </div>
 </nav>
@@ -384,11 +407,28 @@
     </form>
   </div>
 </div>
+<!-- Hoja para cambiar algo de la lista de la compra -->
+<div class="velo" id="velo-cp" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="cp-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="cp-tit">Cambiar</h2><button class="ib" id="cp-x" aria-label="Cerrar" type="button">✕</button></div>
+    <form class="fform" id="cp-form" novalidate>
+      <label class="full">Qué<input class="field" id="cp-nom" required autocomplete="off"></label>
+      <label class="full">Cantidad (opcional)<input class="field" id="cp-cant" placeholder="Ej. 2, 1 kg, un paquete" autocomplete="off"></label>
+      <div class="pk full"><span class="pl">Lista</span><div class="chips" id="cp-lis" role="group" aria-label="Lista"></div></div>
+      <div class="pk full" id="cp-sec-w"><span class="pl">Sección del súper</span><div class="chips" id="cp-sec" role="group" aria-label="Sección"></div><span class="hint">La próxima vez irá solo a esta sección.</span></div>
+      <button class="btn primary full guardar" type="submit" id="cp-ok">Guardar</button>
+      <button class="btn danger full" type="button" id="cp-del">Quitar de la lista</button>
+      <p class="toast full" id="cp-msg" role="status"></p>
+    </form>
+  </div>
+</div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=17"></script>
-<script src="store.js?v=17"></script>
-<script src="ticket.js?v=17"></script>
-<script src="app.js?v=17"></script>
+<script src="config.js?v=18"></script>
+<script src="pasillos.js?v=18"></script>
+<script src="store.js?v=18"></script>
+<script src="ticket.js?v=18"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>

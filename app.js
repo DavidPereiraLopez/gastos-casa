@@ -24,7 +24,7 @@ const RULES = [[/mercadona|carrefour|lidl|dia |aldi|eroski|alcampo|consum|ahorra
  [/farmacia/i, "SALUD", "Farmacia"],
  [/clinica|dentist|sanitas|adeslas|optica/i, "SALUD", "Médico"]];
 
-let yo = null, hogar = null, miembros = [], data = [], tickets = [], fijos = [], eventos = [], tareas = [], movimientos = [];
+let yo = null, hogar = null, miembros = [], data = [], tickets = [], fijos = [], eventos = [], tareas = [], movimientos = [], compra = [], productos = [];
 let mesVista = ym(today), vista = "mes";
 const sel = { g: "", c: "", q: "", p: "Tarjeta", cu: "" };
 
@@ -117,7 +117,7 @@ async function arrancar() {
 async function cargar() {
   const d = await store.cargar();
   hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; hogar.personas = hogar.personas || []; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || []; eventos = d.eventos || []; tareas = d.tareas || [];
-  hogar.saldos = hogar.saldos || {}; movimientos = d.movimientos || [];
+  hogar.saldos = hogar.saldos || {}; movimientos = d.movimientos || []; compra = d.compra || []; productos = d.productos || [];
 }
 // Gastos fijos: al abrir la app se apuntan los que ya tocaban este mes y faltan
 async function apuntarFijos() {
@@ -135,12 +135,16 @@ async function apuntarFijos() {
 let tab = "inicio";
 document.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => irA(b.dataset.t)));
 function irA(t) {
-  tab = t; ["inicio", "movs", "cal", "tab", "pres", "mas"].forEach(x => $("t-" + x).hidden = x !== t);
-  $("top-mes").hidden = t === "cal" || t === "tab"; // el calendario tiene su propio mes y deja ir al futuro; el tablero no va por meses
-  $("fab").setAttribute("aria-label", t === "cal" ? "Añadir al calendario" : t === "tab" ? "Nueva tarea" : "Apuntar un gasto");
-  document.querySelectorAll(".tab").forEach(b => b.dataset.t === t ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  tab = t; ["inicio", "movs", "compra", "cal", "tab", "pres", "mas"].forEach(x => $("t-" + x).hidden = x !== t);
+  // el calendario tiene su propio mes y deja ir al futuro; el tablero y la compra no van por meses
+  $("top-mes").hidden = t === "cal" || t === "tab" || t === "compra";
+  $("fab").setAttribute("aria-label", t === "cal" ? "Añadir al calendario" : t === "tab" ? "Nueva tarea" : t === "compra" ? "Añadir a la compra" : "Apuntar un gasto");
+  const enNav = t === "pres" ? "mas" : t; // Presupuesto se abre desde Más
+  document.querySelectorAll(".tab").forEach(b => b.dataset.t === enNav ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   scrollTo(0, 0);
 }
+$("ir-pres").addEventListener("click", () => irA("pres"));
+$("s-meta").closest(".saldo").addEventListener("click", () => irA("pres"));
 $("mes-ant").addEventListener("click", () => { mesVista = addMes(mesVista, -1); pintar() });
 $("mes-sig").addEventListener("click", () => { if (mesVista < ym(today)) { mesVista = addMes(mesVista, 1); pintar() } });
 
@@ -148,7 +152,7 @@ function pintar() {
   $("hola").textContent = "Hola, " + yo.nombre;
   $("mes-t").textContent = nombreMes(mesVista);
   $("mes-sig").disabled = mesVista >= ym(today);
-  pintarInicio(); pintarBolsas(); pintarMovs(); pintarCal(); pintarTab(); pintarPres(); pintarMas();
+  pintarInicio(); pintarBolsas(); pintarMovs(); pintarCal(); pintarTab(); pintarCompra(); pintarPres(); pintarMas();
   if (!$("velo-bo").hidden) pintarBolsa(); // por si el otro mete o gasta dinero mientras está abierta
 }
 
@@ -164,7 +168,7 @@ function pintarInicio() {
   $("s-total").textContent = fmt(total);
   $("s-prog").style.width = pres ? Math.min(100, total / pres * 100) + "%" : "0";
   const quedan = new Date(vy, vm, 0).getDate() - today.getDate();
-  $("s-meta").textContent = !pres ? "Pon un presupuesto en la pestaña Presupuesto para ver cuánto te queda."
+  $("s-meta").textContent = !pres ? "Toca aquí para poner un presupuesto y ver cuánto te queda."
     : total <= pres ? `Te quedan ${fmt(pres - total)} de ${fmt0(pres)}${esActual ? ` para ${quedan} día${quedan === 1 ? "" : "s"}` : ""}.`
     : `Te has pasado ${fmt(total - pres)} del presupuesto de ${fmt0(pres)}.`;
 
@@ -656,7 +660,7 @@ function abrirHoja(x) {
 function cerrarHoja() { quitarFoto(); $("velo").hidden = true; document.body.style.overflow = ""; editId = null; cola = []; colaN = 0; if (selNuevo) { Object.assign(sel, selNuevo); selNuevo = null } }
 // Repasar uno tras otro los gastos sin categoría, del más reciente al más antiguo
 function categorizarPendientes() { cola = sinCategoria().map(x => x.id); colaN = cola.length; const id = cola.shift(); if (id) abrirHoja(data.find(x => x.id === id)) }
-$("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : tab === "tab" ? abrirTarea(null) : abrirHoja());
+$("fab").addEventListener("click", () => tab === "cal" ? abrirEvento(null, calDia) : tab === "tab" ? abrirTarea(null) : tab === "compra" ? $("cp-super-in").focus() : abrirHoja());
 $("h-x").addEventListener("click", cerrarHoja);
 $("h-del").addEventListener("click", () => dosToques($("h-del"), async () => {
   const x = data.find(g => g.id === editId);
@@ -1103,6 +1107,160 @@ $("ta-del").addEventListener("click", e => dosToques(e.target, async () => {
   catch (err) { aviso("ta-msg", "No se ha borrado: " + errTxt(err), true) }
 }));
 
+// ---------------- Lista de la compra ----------------
+// Dos listas: «super» (se agrupa sola por secciones, ver pasillos.js) y «otras» (farmacia, ferretería…, sin agrupar).
+// Al apuntar algo se guarda también en compra_productos: así se sugiere la próxima vez y recuerda su sección.
+const P = window.pasillos, SECC = Object.fromEntries(P.SECCIONES.map(([k, n, e]) => [k, { n, e }]));
+const LISTAS = [["super", "Supermercado"], ["otras", "Otras compras"]];
+const pendientes = l => compra.filter(x => x.lista === l && !x.hecho);
+const mayus = s => s.charAt(0).toLocaleUpperCase("es-ES") + s.slice(1);
+const UNIDADES = "kg|kilos?|g|gr|gramos|l|litros?|ml|uds?|unidades|x|paquetes?|packs?|botes?|latas?|bricks?|bolsas?|docenas?|cajas?|botellas?|barras?|mallas?|bandejas?";
+// "2 kg de naranjas" → { nombre: "naranjas", cantidad: "2 kg" }; "leche x6" → { nombre: "leche", cantidad: "6" }
+function partirCantidad(t) {
+  t = t.trim().replace(/\s+/g, " ");
+  let m = t.match(new RegExp(`^(\\d+(?:[.,]\\d+)?\\s*(?:${UNIDADES})?|media docena|una docena|un kilo|medio kilo)\\s+(?:de\\s+)?(.+)$`, "i"));
+  if (m) return { nombre: m[2], cantidad: m[1].replace(/^x$/i, "") };
+  m = t.match(new RegExp(`^(.+?)\\s+x?\\s*(\\d+(?:[.,]\\d+)?\\s*(?:${UNIDADES})?)$`, "i"));
+  if (m) return { nombre: m[1], cantidad: m[2] };
+  return { nombre: t, cantidad: null };
+}
+const productoDe = (l, nombre) => productos.find(p => p.lista === l && p.clave === P.clave(nombre));
+const seccionDe = nombre => (productoDe("super", nombre) || {}).seccion || P.seccionDe(nombre);
+
+function pintarCompra() {
+  const n = pendientes("super").length + pendientes("otras").length;
+  $("cp-badge").hidden = !n; $("cp-badge").textContent = n > 99 ? "99+" : n;
+  LISTAS.forEach(([l]) => { pintarLista(l); pintarSug(l) });
+}
+function filaCp(x) {
+  return `<li class="cp${x.hecho ? " hecho" : ""}" data-cp="${x.id}"><button type="button" class="cp-b" data-tg aria-pressed="${x.hecho}"><span class="cb" aria-hidden="true"></span><span class="t">${esc(x.nombre)}</span>${x.cantidad ? `<span class="q">${esc(x.cantidad)}</span>` : ""}</button><button type="button" class="ib cp-ed" data-ed aria-label="Cambiar ${esc(x.nombre)}">⋯</button></li>`;
+}
+function pintarLista(l) {
+  const items = compra.filter(x => x.lista === l).sort((a, b) => a.creado.localeCompare(b.creado));
+  const pend = items.filter(x => !x.hecho), hechos = items.filter(x => x.hecho);
+  $(`cp-${l}-n`) && ($(`cp-${l}-n`).textContent = pend.length ? `${pend.length} por comprar` : "");
+  let html = "";
+  if (l === "super") html = P.SECCIONES.map(([k]) => {
+    const de = pend.filter(x => (SECC[x.seccion] ? x.seccion : "otros") === k); if (!de.length) return "";
+    return `<div class="cp-sec"><h3><span aria-hidden="true">${SECC[k].e}</span> ${SECC[k].n} <span class="n">${de.length}</span></h3><ul>${de.map(filaCp).join("")}</ul></div>`;
+  }).join("");
+  else if (pend.length) html = `<ul>${pend.map(filaCp).join("")}</ul>`;
+  if (!pend.length) html = `<p class="vacio">${l === "super" ? (hechos.length ? "¡Todo en el carro!" : "La lista está vacía. Escribe arriba lo que falta: se coloca solo por secciones.") : "Nada por ahora."}</p>`;
+  if (hechos.length) html += `<div class="cp-sec cp-carro"><div class="ch"><h3>${l === "super" ? "En el carro" : "Comprado"} <span class="n">${hechos.length}</span></h3><button class="btn sm" type="button" data-limpiar="${l}">Quitar lo comprado</button></div><ul>${hechos.map(filaCp).join("")}</ul></div>`;
+  $(`cp-${l}-l`).innerHTML = html;
+}
+// Sugerencias: con el campo vacío, lo que más compráis y no está en la lista; al escribir, lo vuestro primero y luego el diccionario
+function pintarSug(l) {
+  const q = P.clave($(`cp-${l}-in`).value.trim()), ya = new Set(pendientes(l).map(x => P.clave(x.nombre)));
+  const propios = productos.filter(p => p.lista === l && !ya.has(p.clave)).sort((a, b) => b.veces - a.veces || b.ultima.localeCompare(a.ultima));
+  let out;
+  if (!q) out = propios.slice(0, l === "super" ? 10 : 6);
+  else {
+    const qn = partirCantidad(q).nombre;
+    out = [...propios.filter(p => p.clave.startsWith(qn)), ...propios.filter(p => !p.clave.startsWith(qn) && p.clave.includes(qn))];
+    if (l === "super") P.sugerir(qn, 12).forEach(s => { const k = P.clave(s.nombre); if (!ya.has(k) && !out.some(p => p.clave === k)) out.push(s) });
+    out = out.slice(0, 8);
+  }
+  $(`cp-${l}-sug`).innerHTML = out.length ? `<span class="hint">${q ? "¿Quieres decir…?" : "Lo de siempre"}</span>` + out.map(p => {
+    const e = l === "super" ? (SECC[p.seccion || seccionDe(p.nombre)] || SECC.otros).e + " " : "";
+    return `<button type="button" class="chip" data-sug="${esc(p.nombre)}">${e}${esc(p.nombre)}</button>`;
+  }).join("") : "";
+}
+async function apuntar(l, texto) {
+  const { nombre, cantidad } = partirCantidad(texto); if (!nombre) return;
+  const k = P.clave(nombre), igual = compra.find(x => x.lista === l && P.clave(x.nombre) === k);
+  const prod = productoDe(l, nombre);
+  try {
+    if (igual) { // ya estaba: si estaba en el carro vuelve a la lista; si se dice otra cantidad, se cambia
+      const c = { hecho: false }; if (cantidad) c.cantidad = cantidad;
+      if (!igual.hecho && !cantidad) return marcar(igual.id);
+      ponCp(await store.updCompra(igual.id, c)); pintarCompra(); return marcar(igual.id);
+    }
+    const f = { lista: l, nombre: prod ? prod.nombre : mayus(nombre), cantidad, seccion: l === "super" ? seccionDe(nombre) : null };
+    const r = await store.addCompra(f); compra.push(r); pintarCompra(); marcar(r.id);
+    recordar(l, f.nombre, f.seccion, true);
+  } catch (err) { $(`cp-${l}-in`).value = texto; alertaCp(l, "No se ha guardado: " + errTxt(err)) }
+}
+// guarda el producto en lo que suele comprar el hogar (sumando una vez más si se acaba de apuntar)
+async function recordar(l, nombre, seccion, otraVez) {
+  const prev = productoDe(l, nombre);
+  const p = { lista: l, clave: P.clave(nombre), nombre, seccion, veces: (prev ? prev.veces : 0) + (otraVez || !prev ? 1 : 0), ultima: new Date().toISOString() };
+  try { const r = await store.guardarProducto(p); productos = productos.filter(x => !(x.lista === l && x.clave === p.clave)); productos.push(r || p) } catch (e) { }
+}
+const ponCp = r => { compra = compra.filter(x => x.id !== r.id); compra.push(r) };
+function marcar(id) { const li = document.querySelector(`[data-cp="${id}"]`); if (li) { li.classList.add("nuevo"); setTimeout(() => li.classList.remove("nuevo"), 1200) } }
+function alertaCp(l, txt) { const s = $(`cp-${l}-sug`); s.innerHTML = `<span class="toast e">${esc(txt)}</span>` }
+LISTAS.forEach(([l]) => {
+  const inp = $(`cp-${l}-in`);
+  $(`cp-${l}-f`).addEventListener("submit", e => { e.preventDefault(); const t = inp.value.trim(); if (!t) return; inp.value = ""; apuntar(l, t); pintarSug(l); inp.focus() });
+  inp.addEventListener("input", () => pintarSug(l));
+  // tocar una sugerencia la apunta sin cerrar el teclado; si se había escrito una cantidad ("2 le…"), se mantiene
+  $(`cp-${l}-sug`).addEventListener("pointerdown", e => { if (e.target.closest("[data-sug]")) e.preventDefault() });
+  $(`cp-${l}-sug`).addEventListener("click", e => {
+    const b = e.target.closest("[data-sug]"); if (!b) return;
+    const { cantidad } = inp.value.trim() ? partirCantidad(inp.value) : {};
+    inp.value = ""; apuntar(l, (cantidad ? cantidad + " " : "") + b.dataset.sug); pintarSug(l);
+  });
+  $(`cp-${l}-l`).addEventListener("click", async e => {
+    const lim = e.target.closest("[data-limpiar]");
+    if (lim) {
+      const ids = compra.filter(x => x.lista === l && x.hecho).map(x => x.id);
+      try { await store.delCompra(ids); compra = compra.filter(x => !ids.includes(x.id)); pintarCompra(); if (l === "super") ofrecerGasto() } catch (err) { alertaCp(l, errTxt(err)) }
+      return;
+    }
+    const li = e.target.closest("[data-cp]"); if (!li) return;
+    const x = compra.find(y => y.id === li.dataset.cp); if (!x) return;
+    if (e.target.closest("[data-ed]")) return abrirCp(x);
+    if (e.target.closest("[data-tg]")) { // se ve al momento; si falla, se recarga lo guardado
+      x.hecho = !x.hecho; pintarCompra(); if (navigator.vibrate) navigator.vibrate(8);
+      try { ponCp(await store.updCompra(x.id, { hecho: x.hecho })) } catch (err) { await cargar(); pintar() }
+    }
+  });
+});
+// Al quitar lo comprado del súper, propone apuntar el gasto (Supermercado ya elegido)
+function ofrecerGasto() {
+  const G = hogar.grupos.find(g => g.cats.includes("Supermercado")); if (!G) return;
+  const s = $("cp-super-sug");
+  s.innerHTML = `<span class="hint">¿Apuntas lo que ha costado?</span><button type="button" class="btn sm primary" id="cp-gasto">Apuntar gasto del súper</button>`;
+  $("cp-gasto").addEventListener("click", () => { abrirHoja(); sel.g = G.g; sel.c = "Supermercado"; pintarHoja() });
+}
+
+// Hoja para cambiar una cosa de la lista
+const fcp = { x: null, lista: "super", sec: "" };
+function abrirCp(x) {
+  Object.assign(fcp, { x, lista: x.lista, sec: x.seccion || seccionDe(x.nombre) });
+  $("cp-nom").value = x.nombre; $("cp-cant").value = x.cantidad || ""; aviso("cp-msg", "");
+  $("cp-del").textContent = "Quitar de la lista"; chipsCp(); abrirVelo("velo-cp");
+}
+function chipsCp() {
+  $("cp-lis").innerHTML = LISTAS.map(([v, n]) => `<button type="button" class="chip" data-lis="${v}" aria-pressed="${fcp.lista === v}">${n}</button>`).join("");
+  $("cp-sec").innerHTML = P.SECCIONES.map(([k, n, e]) => `<button type="button" class="chip" data-sec="${k}" aria-pressed="${fcp.sec === k}">${e} ${n}</button>`).join("");
+  $("cp-sec-w").hidden = fcp.lista !== "super";
+}
+$("velo-cp").addEventListener("click", e => {
+  if (e.target === $("velo-cp")) return cerrarVelo("velo-cp");
+  const a = e.target.closest("[data-lis]"); if (a) { fcp.lista = a.dataset.lis; if (fcp.lista === "super" && !fcp.sec) fcp.sec = seccionDe($("cp-nom").value); chipsCp() }
+  const s = e.target.closest("[data-sec]"); if (s) { fcp.sec = s.dataset.sec; chipsCp() }
+});
+$("cp-x").addEventListener("click", () => cerrarVelo("velo-cp"));
+$("cp-form").addEventListener("submit", async e => {
+  e.preventDefault();
+  const nombre = $("cp-nom").value.trim().replace(/\s+/g, " "); if (!nombre) return aviso("cp-msg", "Escribe qué hay que comprar.", true);
+  const x = fcp.x, c = { nombre: mayus(nombre), cantidad: $("cp-cant").value.trim() || null, lista: fcp.lista, seccion: fcp.lista === "super" ? fcp.sec || seccionDe(nombre) : null };
+  $("cp-ok").disabled = true;
+  try {
+    ponCp(await store.updCompra(x.id, c)); cerrarVelo("velo-cp"); pintarCompra();
+    // si se ha cambiado la sección o el nombre, se recuerda para la próxima vez
+    if (c.lista === "super" && (c.seccion !== x.seccion || c.nombre !== x.nombre)) recordar("super", c.nombre, c.seccion);
+    else if (c.lista !== x.lista || c.nombre !== x.nombre) recordar(c.lista, c.nombre, c.seccion);
+  } catch (err) { aviso("cp-msg", "No se ha guardado: " + errTxt(err), true) }
+  finally { $("cp-ok").disabled = false }
+});
+$("cp-del").addEventListener("click", async () => {
+  try { await store.delCompra([fcp.x.id]); compra = compra.filter(y => y.id !== fcp.x.id); cerrarVelo("velo-cp"); pintarCompra() }
+  catch (err) { aviso("cp-msg", "No se ha quitado: " + errTxt(err), true) }
+});
+
 // ---------------- Huchas y cuentas comunes ----------------
 // La app lleva el saldo de las cuentas que están en hogar.saldos ({ "Efectivo VADA": { desde: "2026-10-21" } }).
 // Saldo = lo que llega (aportaciones, traspasos, saldo inicial) − lo que sale − los gastos pagados desde ella a partir de «desde».
@@ -1137,7 +1295,7 @@ const cerrarVelo = id => { $(id).hidden = true; document.body.style.overflow = "
   $(k + "-x").addEventListener("click", () => cerrarVelo("velo-" + k));
   $("velo-" + k).addEventListener("click", e => { if (e.target === $("velo-" + k)) cerrarVelo("velo-" + k) });
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape") ["velo-mo", "velo-nb", "velo-bo"].some(id => !$(id).hidden && (cerrarVelo(id), true)) });
+document.addEventListener("keydown", e => { if (e.key === "Escape") ["velo-cp", "velo-mo", "velo-nb", "velo-bo"].some(id => !$(id).hidden && (cerrarVelo(id), true)) });
 
 // Detalle de una hucha o cuenta común
 let bolsa = null;

@@ -33,7 +33,7 @@
       unirse: async (codigo, nombre) => ok(await sb.rpc("unirse_hogar", { p_codigo: codigo, p_nombre_persona: nombre })),
       cargar: async () => {
         const desde = iso(new Date(new Date().getFullYear() - 2, 0, 1)); // este año y los dos anteriores
-        const [h, ms, gs, ts, rs, es, tas, mvs] = await Promise.all([
+        const [h, ms, gs, ts, rs, es, tas, mvs, cps, cpp] = await Promise.all([
           sb.from("hogares").select("*").single(),
           sb.from("miembros").select("*").order("creado"),
           sb.from("gastos").select("*").gte("fecha", desde).order("fecha", { ascending: false }).limit(20000),
@@ -41,7 +41,9 @@
           sb.from("recurrentes").select("*").order("dia"),
           sb.from("eventos").select("*").order("fecha"),
           sb.from("tareas").select("*").order("orden"),
-          sb.from("movimientos").select("*").order("fecha", { ascending: false })]);
+          sb.from("movimientos").select("*").order("fecha", { ascending: false }),
+          sb.from("compra").select("*").order("creado"),
+          sb.from("compra_productos").select("*").order("veces", { ascending: false }).limit(2000)]);
         const hogar = ok(h), gastos = ok(gs);
         // el saldo de una hucha o cuenta común necesita todos sus gastos desde que se lleva, aunque sean de antes de esos años
         const viejas = Object.entries(hogar.saldos || {}).filter(([, v]) => v.desde < desde);
@@ -49,8 +51,9 @@
           const ini = viejas.map(([, v]) => v.desde).sort()[0];
           gastos.push(...ok(await sb.from("gastos").select("*").in("cuenta", viejas.map(([c]) => c)).gte("fecha", ini).lt("fecha", desde)));
         }
-        // si las tablas del calendario, del tablero o de las huchas aún no existen, la app sigue funcionando sin ellos
-        return { hogar, miembros: ok(ms), gastos, tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data, tareas: tas.error ? [] : tas.data, movimientos: mvs.error ? [] : mvs.data };
+        // si las tablas del calendario, del tablero, de las huchas o de la compra aún no existen, la app sigue funcionando sin ellos
+        return { hogar, miembros: ok(ms), gastos, tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data, tareas: tas.error ? [] : tas.data, movimientos: mvs.error ? [] : mvs.data,
+          compra: cps.error ? [] : cps.data, productos: cpp.error ? [] : cpp.data };
       },
       // para exportar: todos los gastos del hogar entre dos fechas (vacías = sin límite), de 1000 en 1000 (máximo de Supabase por consulta)
       exportarGastos: async (desde, hasta) => {
@@ -91,6 +94,11 @@
       delTareas: async ids => ok(await sb.from("tareas").delete().in("id", ids)),
       addMovimiento: async f => ok(await sb.from("movimientos").insert(f).select().single()),
       delMovimiento: async id => ok(await sb.from("movimientos").delete().eq("id", id)),
+      addCompra: async f => ok(await sb.from("compra").insert(f).select().single()),
+      updCompra: async (id, c) => ok(await sb.from("compra").update(c).eq("id", id).select().single()),
+      delCompra: async ids => ok(await sb.from("compra").delete().in("id", ids)),
+      // lo que suele comprar el hogar (para sugerir y recordar la sección): uno por lista y nombre
+      guardarProducto: async p => ok(await sb.from("compra_productos").upsert(p, { onConflict: "hogar_id,lista,clave" }).select().single()),
       // notificaciones push: cada móvil guarda su suscripción, ligada al usuario
       clavePush: async () => ok(await sb.rpc("vapid_publica")),
       guardarPush: async (sus, uid) => { const j = sus.toJSON(); ok(await sb.from("push_suscripciones").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_id: uid }, { onConflict: "endpoint" })) },
@@ -99,7 +107,7 @@
         if (canal) return;
         let t = null; const avisar = () => { clearTimeout(t); t = setTimeout(fn, 400) };
         canal = sb.channel("hogar-" + hogarId);
-        ["gastos", "tickets", "recurrentes", "eventos", "tareas", "movimientos"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
+        ["gastos", "tickets", "recurrentes", "eventos", "tareas", "movimientos", "compra"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
         canal.subscribe();
       },
       dejarDeEscuchar: () => { if (canal) { sb.removeChannel(canal); canal = null } }
@@ -146,7 +154,7 @@
       const tickets = [{ id: uid(), producto: "Lavadora Bosch Serie 4", tienda: "MediaMarkt", fecha_compra: yAgo(2, 10), anos_garantia: 3, importe: 449, archivo: null },
         { id: uid(), producto: "Portátil Lenovo IdeaPad", tienda: "El Corte Inglés", fecha_compra: yAgo(1, 2), anos_garantia: 3, importe: 699, archivo: null },
         { id: uid(), producto: "Cafetera Krups", tienda: "Amazon", fecha_compra: yAgo(3, 6), anos_garantia: 3, importe: 89.9, archivo: null }];
-      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo(), tareas: tareasDemo(), movimientos: movimientosDemo() };
+      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo(), tareas: tareasDemo(), movimientos: movimientosDemo(), ...compraDemo() };
     }
     // la demo lleva el saldo de la cuenta común y del efectivo común desde el día 1 del mes pasado
     function inicioSaldos() { return iso(new Date(today.getFullYear(), today.getMonth() - 1, 1)) }
@@ -172,6 +180,18 @@
         ta(4, { titulo: "Revisar el saldo de la cuenta común", columna: "pendiente", quien: "David", fecha_limite: d(3), repetir: "mensual", cada: 1 }),
         ta(1, { titulo: "Renovar DNI de las niñas", columna: "hecho", quien: "Pareja", hecho: new Date().toISOString() })];
     }
+    function compraDemo() {
+      const P = window.pasillos, ahora = Date.now();
+      const it = (nombre, lista, f) => ({ id: uid(), lista, nombre, cantidad: null, seccion: lista === "super" ? P.seccionDe(nombre) : null, hecho: false, creado: new Date(ahora - 6e4 * (20 - out.length)).toISOString(), ...f });
+      const out = [];
+      [["Leche semidesnatada", { cantidad: "6" }], ["Plátanos"], ["Tomates", { cantidad: "1 kg" }], ["Pechugas de pollo"], ["Pan de molde", { hecho: true }], ["Yogures naturales"],
+        ["Merluza"], ["Papel higiénico"], ["Detergente"], ["Huevos", { cantidad: "1 docena" }], ["Jamón york"], ["Aceite de oliva", { hecho: true }]].forEach(([n, f]) => out.push(it(n, "super", f)));
+      [["Ibuprofeno"], ["Tacos para la pared"], ["Pilas AAA para el mando"]].forEach(([n]) => out.push(it(n, "otras")));
+      const productos = ["Leche semidesnatada", "Plátanos", "Pan de molde", "Huevos", "Yogures naturales", "Tomates", "Pechugas de pollo", "Manzanas", "Café molido", "Papel de cocina", "Queso en lonchas", "Galletas"]
+        .map((nombre, i) => ({ lista: "super", clave: P.clave(nombre), nombre, seccion: P.seccionDe(nombre), veces: 30 - i * 2, ultima: new Date().toISOString() }));
+      productos.push(...["Ibuprofeno", "Paracetamol", "Tacos para la pared"].map((nombre, i) => ({ lista: "otras", clave: P.clave(nombre), nombre, seccion: null, veces: 4 - i, ultima: new Date().toISOString() })));
+      return { compra: out, productos };
+    }
     function eventosDemo() {
       const d = n => iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n));
       const lunes = new Date(today); lunes.setDate(today.getDate() - (today.getDay() + 6) % 7);
@@ -189,6 +209,7 @@
     if (!db.eventos) db.eventos = eventosDemo();
     if (!db.tareas) db.tareas = tareasDemo();
     if (!db.movimientos) { db.movimientos = []; db.hogar.saldos ||= {} }
+    if (!db.compra) Object.assign(db, compraDemo());
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) { } };
     const archivos = {}; // fotos de tickets de la demo: solo mientras la página está abierta
     const clone = x => JSON.parse(JSON.stringify(x));
@@ -225,6 +246,10 @@
       delTareas: async ids => { db.tareas = db.tareas.filter(x => !ids.includes(x.id)); save() },
       addMovimiento: async f => { const m = { id: uid(), ...f }; db.movimientos.push(m); save(); return clone(m) },
       delMovimiento: async id => { db.movimientos = db.movimientos.filter(x => x.id !== id); save() },
+      addCompra: async f => { const c = { id: uid(), hecho: false, cantidad: null, seccion: null, creado: new Date().toISOString(), ...f }; db.compra.push(c); save(); return clone(c) },
+      updCompra: async (id, c) => { const x = db.compra.find(y => y.id === id); Object.assign(x, c); save(); return clone(x) },
+      delCompra: async ids => { db.compra = db.compra.filter(x => !ids.includes(x.id)); save() },
+      guardarProducto: async p => { db.productos = db.productos.filter(x => !(x.lista === p.lista && x.clave === p.clave)); db.productos.push(p); save(); return clone(p) },
       urlTicket: async t => { if (!archivos[t.archivo]) throw new Error("En la demo las fotos solo se ven mientras la página está abierta."); return archivos[t.archivo] },
       clavePush: async () => null, guardarPush: async () => { }, borrarPush: async () => { },
       escuchar: () => { }, dejarDeEscuchar: () => { }
