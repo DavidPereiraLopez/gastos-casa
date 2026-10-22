@@ -12,6 +12,7 @@ App web instalable (PWA) para apuntar y analizar los gastos de casa entre los do
 - `supabase/tareas-repetir.sql`: tareas que se repiten y personas del hogar que aún no tienen cuenta.
 - `supabase/fotos-gastos.sql`: guardar la foto del ticket en cada gasto.
 - `ticket.js`: lee la foto de un ticket en el propio móvil (Tesseract.js) para rellenar importe, fecha y tienda.
+- `supabase/compra.sql` y `pasillos.js`: lista de la compra compartida (supermercado agrupado por secciones y otras compras) y diccionario de productos para sugerir y colocar cada cosa en su sección.
 - `supabase/huchas.sql`: huchas de efectivo y cuentas comunes con saldo (aportaciones y traspasos entre cuentas, que no cuentan como gasto).
 - `supabase/avisos-push.sql`, `supabase/functions/avisos-tareas` y `supabase/avisos-cron.sql`: notificaciones push cuando a una tarea le quedan 3 días o 1 día. La primera vez, la función crea sus claves VAPID y las guarda en Supabase Vault; no hay que configurar secretos.
 - `sw.js`, `manifest.webmanifest`, iconos: para instalarla en el móvil.

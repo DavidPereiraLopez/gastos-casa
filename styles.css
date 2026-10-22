@@ -358,3 +358,48 @@ body.arrastrando .tablero{scroll-snap-type:none}
 .gfila .del[hidden]{display:block;visibility:hidden}
 .gfila .del{font-size:1.15rem;text-decoration:none}
 .gfila .emo.field::placeholder{opacity:.35;filter:grayscale(1)}
+
+/* ---------- Lista de la compra ---------- */
+/* Supermercado: tarjeta principal, agrupada por secciones. Otras compras: debajo, más discreta y sin agrupar */
+.nav .in{grid-template-columns:repeat(7,1fr)}
+.tab-i{position:relative;display:block;line-height:0}
+.tab-n{position:absolute;top:-4px;left:calc(100% - 6px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:700 .6rem/16px var(--body);text-align:center}
+.cp-super{gap:14px}
+.cp-super h2{font-size:1.2rem;font-weight:700}
+.cp-add{display:grid;grid-template-columns:1fr auto;gap:8px}
+.cp-super .cp-add .field{padding:12px 14px;font-size:1rem;border-radius:12px}
+.cp-super .cp-add .btn{border-radius:12px;padding-inline:16px}
+.cp-sug{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.cp-sug:empty{display:none}
+.cp-sug .hint{flex-basis:100%;font-size:.74rem}
+.cp-sug .chip{padding:6px 12px}
+.cp-lista{display:grid;gap:14px}
+.cp-lista ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.cp-sec{display:grid;gap:6px}
+.cp-sec h3{margin:0;font-size:.74rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+.cp-sec h3 span[aria-hidden]{font-size:1rem;letter-spacing:0}
+.cp-sec h3 .n{font:500 .74rem var(--mono);letter-spacing:0}
+.cp{display:grid;grid-template-columns:1fr auto;align-items:center;background:var(--bg);border-radius:12px;transition:background .3s}
+.cp.nuevo{background:var(--soft);box-shadow:0 0 0 2px var(--accent)}
+.cp-b{background:none;border:0;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;text-align:left;cursor:pointer;padding:11px 4px 11px 12px;min-width:0;min-height:46px}
+.cb{width:22px;height:22px;border-radius:7px;border:2px solid var(--muted);display:grid;place-items:center}
+.cp-b .t{font-weight:500;font-size:.98rem;overflow-wrap:anywhere}
+.cp-b .q{font:500 .78rem var(--mono);color:var(--muted);background:var(--surface);border-radius:8px;padding:2px 8px;white-space:nowrap}
+.cp-ed{color:var(--muted);width:40px;height:44px}
+.cp.hecho .cb{background:var(--accent);border-color:var(--accent)}
+.cp.hecho .cb::after{content:"";width:10px;height:5px;border:solid var(--accent-ink);border-width:0 0 2.5px 2.5px;transform:translateY(-1px) rotate(-45deg)}
+.cp.hecho .t{text-decoration:line-through;color:var(--muted)}
+.cp.hecho{background:none}
+.cp-carro{border-top:1px dashed var(--line);padding-top:10px}
+.cp-carro .ch h3{flex:1}
+.cp-lista .vacio{margin:0;padding:14px 8px}
+.cp-otras{background:transparent;border:1px solid var(--line);padding:14px}
+.cp-otras h2{font-size:.95rem}
+.cp-otras .cp-b{padding-block:8px;min-height:40px}
+.cp-otras .cp-b .t{font-size:.9rem}
+.cp-otras .cp{background:var(--surface)}
+.cp-otras .cp.hecho{background:none}
+#cp-sec .chip{font-size:.78rem}
+.saldo{cursor:pointer}
+.ir-pres{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;border:0;text-align:left;cursor:pointer;color:var(--fg);font:inherit;font-size:.92rem}
+.ir-pres > span:last-child{font-size:1.5rem;color:var(--muted)}

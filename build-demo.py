@@ -15,6 +15,9 @@ out = f"""<title>Gastos de Casa</title>
 </script>
 {body}
 <script>
+{(d/'pasillos.js').read_text()}
+</script>
+<script>
 {(d/'store.js').read_text()}
 </script>
 <script>
