@@ -23,7 +23,7 @@ App web instalable (PWA) para apuntar y analizar los gastos de casa entre los do
 2. En el proyecto: SQL Editor > New query, pega `supabase/schema.sql` y pulsa Run.
 3. Project Settings > API: copia la Project URL y la anon public key en `config.js`. No uses nunca la service_role key.
 4. Authentication > URL Configuration: pon como Site URL la dirección de GitHub Pages.
-5. Publica la carpeta en GitHub Pages.
+5. Publica la carpeta en GitHub Pages (Settings > Pages, rama main, carpeta raíz). Si una fusión no aparece publicada, mira en Actions que haya corrido «pages build and deployment»; un push nuevo a main la vuelve a lanzar.
 6. Cada uno abre la dirección en su móvil, crea su cuenta y la instala (Compartir > Añadir a pantalla de inicio).
    El primero crea el hogar; el segundo escribe el código de invitación que aparece en Más > Familia.
 
