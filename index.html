@@ -11,8 +11,8 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
-<link rel="stylesheet" href="styles.css?v=16">
-<script src="tema.js?v=16"></script>
+<link rel="stylesheet" href="styles.css?v=17">
+<script src="tema.js?v=17"></script>
 </head>
 <body>
 <!--APP-START-->
@@ -175,6 +175,20 @@
         <label class="full">Archivo CSV<input class="field" type="file" id="csv" accept=".csv,text/csv,.txt"></label>
       </div>
       <p class="toast" id="csvmsg" role="status"></p>
+    </section>
+    <section class="card" aria-label="Exportar a Excel">
+      <h2>Exportar a Excel</h2>
+      <p class="hint">Descarga los gastos del hogar en una hoja de cálculo para analizarlos. Deja las fechas en blanco para sacarlos todos.</p>
+      <div class="fform">
+        <label class="full">Periodo<select class="field" id="ex-per">
+          <option value="todo">Todos los gastos</option><option value="mes">Este mes</option><option value="mes-1">Mes pasado</option>
+          <option value="ano">Este año</option><option value="ano-1">Año pasado</option><option value="otro">Otras fechas…</option></select></label>
+        <label>Desde<input class="field" type="date" id="ex-desde"></label>
+        <label>Hasta<input class="field" type="date" id="ex-hasta"></label>
+        <button class="btn primary full" type="button" id="ex-xlsx">Descargar Excel</button>
+        <button class="btn full" type="button" id="ex-csv">Descargar CSV</button>
+      </div>
+      <p class="toast" id="ex-msg" role="status"></p>
     </section>
     <section class="card ajustes" aria-label="Ajustes">
       <h2>Grupos, categorías y cuentas</h2>
@@ -372,9 +386,9 @@
 </div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=16"></script>
-<script src="store.js?v=16"></script>
-<script src="ticket.js?v=16"></script>
-<script src="app.js?v=16"></script>
+<script src="config.js?v=17"></script>
+<script src="store.js?v=17"></script>
+<script src="ticket.js?v=17"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

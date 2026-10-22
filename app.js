@@ -411,6 +411,82 @@ $("csv").addEventListener("change", async e => {
   try { const out = await store.addGastos(filas); data.push(...out.map(corto)); pintar(); aviso("csvmsg", `Importados ${filas.length} cargos en ${$("csv-cu").value}.`) }
   catch (err) { aviso("csvmsg", "No se ha importado: " + errTxt(err), true) }
 });
+// exportar: los gastos del hogar a Excel (o CSV) para analizarlos fuera. Se genera en el propio móvil, sin servidor.
+const XLSX_URL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+let cargaXlsx = null;
+const libXlsx = () => cargaXlsx ||= new Promise((ok, ko) => {
+  if (window.XLSX) return ok(window.XLSX);
+  const sc = document.createElement("script"); sc.src = XLSX_URL;
+  sc.onload = () => ok(window.XLSX); sc.onerror = () => { cargaXlsx = null; ko(new Error("No se ha podido cargar el generador de Excel")) };
+  document.head.appendChild(sc);
+});
+function periodoExport(v) {
+  const y = today.getFullYear(), m = today.getMonth();
+  return { todo: ["", ""], mes: [iso(new Date(y, m, 1)), iso(new Date(y, m + 1, 0))], "mes-1": [iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))],
+    ano: [`${y}-01-01`, `${y}-12-31`], "ano-1": [`${y - 1}-01-01`, `${y - 1}-12-31`] }[v];
+}
+$("ex-per").addEventListener("change", e => { const r = periodoExport(e.target.value); if (r) [$("ex-desde").value, $("ex-hasta").value] = r });
+["ex-desde", "ex-hasta"].forEach(id => $(id).addEventListener("input", () => { $("ex-per").value = $("ex-desde").value || $("ex-hasta").value ? "otro" : "todo" }));
+const COLS_EX = ["Fecha", "Año", "Mes", "Importe", "Grupo", "Categoría", "Quién", "Forma de pago", "Cuenta", "Nota", "Gasto fijo", "Foto del ticket", "Apuntado por", "Apuntado el"];
+function filasExport(gs) {
+  const quienApunta = id => (miembros.find(m => m.user_id === id) || {}).nombre || "";
+  const fijo = id => id ? (fijos.find(r => r.id === id) || {}).nombre || "Sí" : "";
+  return gs.map(r => ({ fecha: r.fecha, mes: r.fecha.slice(0, 7), importe: Number(r.importe), fila: [r.fecha, +r.fecha.slice(0, 4), r.fecha.slice(0, 7), Number(r.importe),
+    nomG(r.grupo), r.categoria || SIN, r.quien || "", r.forma_pago || "", r.cuenta || "", r.nota || "", fijo(r.recurrente_id), r.archivo ? "Sí" : "", quienApunta(r.creado_por), r.creado || ""], grupo: nomG(r.grupo) }));
+}
+async function leerExport() {
+  const desde = $("ex-desde").value, hasta = $("ex-hasta").value;
+  if (desde && hasta && desde > hasta) throw new Error("La fecha «Desde» es posterior a «Hasta».");
+  const gs = await store.exportarGastos(desde, hasta);
+  if (!gs.length) throw new Error("No hay gastos en esas fechas.");
+  const nombre = "gastos-casa_" + (desde || hasta ? `${desde || "inicio"}_a_${hasta || iso(today)}` : "todos_" + iso(today));
+  return { filas: filasExport(gs), nombre };
+}
+function bajar(blob, nombre) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 6e4);
+}
+// CSV para Excel en español: separado por punto y coma, coma decimal y con BOM para que lea bien los acentos
+function bajarCsv(filas, nombre) {
+  const cel = v => { const t = typeof v === "number" ? String(v).replace(".", ",") : String(v ?? ""); return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t };
+  const txt = [COLS_EX, ...filas.map(f => f.fila.map((v, k) => k === 0 ? v.split("-").reverse().join("/") : k === 13 && v ? new Date(v).toLocaleString("es-ES") : v))].map(l => l.map(cel).join(";")).join("\r\n");
+  bajar(new Blob(["\ufeff" + txt], { type: "text/csv;charset=utf-8" }), nombre + ".csv");
+}
+async function bajarXlsx(filas, nombre) {
+  const X = await libXlsx();
+  const serie = f => (Date.UTC(+f.slice(0, 4), +f.slice(5, 7) - 1, +f.slice(8, 10)) - Date.UTC(1899, 11, 30)) / 864e5; // fecha de Excel
+  const momento = t => { const d = new Date(t); return (d.getTime() - d.getTimezoneOffset() * 6e4 - Date.UTC(1899, 11, 30)) / 864e5 };
+  const EUR = '#,##0.00 "€"';
+  // hoja 1: un gasto por fila, con filtros en la cabecera
+  const ws = X.utils.aoa_to_sheet([COLS_EX, ...filas.map(f => f.fila.map((v, k) => k === 0 ? serie(v) : k === 13 && v ? momento(v) : v))]);
+  filas.forEach((f, i) => { const r = i + 2; ws["A" + r].z = "dd/mm/yyyy"; ws["D" + r].z = EUR; if (ws["N" + r] && ws["N" + r].t === "n") ws["N" + r].z = "dd/mm/yyyy hh:mm" });
+  ws["!autofilter"] = { ref: ws["!ref"] };
+  ws["!cols"] = [11, 6, 9, 11, 16, 20, 12, 15, 18, 32, 16, 9, 13, 16].map(wch => ({ wch }));
+  // hoja 2: total por mes y grupo, lista para comparar meses
+  const orden = [...hogar.grupos.map(G => G.g), SIN], grupos = [...new Set(filas.map(f => f.grupo))].sort((a, b) => (orden.indexOf(a) + 1 || 1e3) - (orden.indexOf(b) + 1 || 1e3) || a.localeCompare(b));
+  const meses = [...new Set(filas.map(f => f.mes))].sort(), suma = {};
+  filas.forEach(f => { const k = f.mes + "|" + f.grupo; suma[k] = Math.round(((suma[k] || 0) + f.importe) * 100) / 100 });
+  const tot = l => Math.round(l.reduce((a, b) => a + (b || 0), 0) * 100) / 100;
+  const cuerpo = meses.map(m => { const v = grupos.map(g => suma[m + "|" + g] || 0); return [m, ...v, tot(v)] });
+  const pie = ["Total", ...grupos.map((g, k) => tot(cuerpo.map(l => l[k + 1]))), tot(cuerpo.map(l => l[grupos.length + 1]))];
+  const rs = X.utils.aoa_to_sheet([["Mes", ...grupos, "Total"], ...cuerpo, pie]);
+  Object.keys(rs).forEach(k => { if (k[0] !== "!" && rs[k].t === "n") rs[k].z = EUR });
+  rs["!cols"] = [{ wch: 9 }, ...grupos.map(g => ({ wch: Math.max(11, g.length + 2) })), { wch: 12 }];
+  const wb = X.utils.book_new();
+  X.utils.book_append_sheet(wb, ws, "Gastos"); X.utils.book_append_sheet(wb, rs, "Por mes y grupo");
+  bajar(new Blob([X.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), nombre + ".xlsx");
+}
+async function exportar(csv) {
+  aviso("ex-msg", "Preparando el archivo…");
+  let x;
+  try { x = await leerExport() } catch (err) { return aviso("ex-msg", errTxt(err), true) }
+  const n = `${x.filas.length} gasto${x.filas.length === 1 ? "" : "s"}`;
+  if (csv) { bajarCsv(x.filas, x.nombre); return aviso("ex-msg", `Descargado ${x.nombre}.csv con ${n}.`) }
+  try { await bajarXlsx(x.filas, x.nombre); aviso("ex-msg", `Descargado ${x.nombre}.xlsx con ${n}.`) }
+  catch (err) { bajarCsv(x.filas, x.nombre); aviso("ex-msg", `No se ha podido hacer el Excel (${errTxt(err)}). Te he bajado el CSV, que Excel también abre: ${n}.`, true) }
+}
+$("ex-xlsx").addEventListener("click", () => exportar(false));
+$("ex-csv").addEventListener("click", () => exportar(true));
 const listaComas = v => [...new Set(v.split(",").map(s => s.trim()).filter(Boolean))];
 function leerGrupos(t) {
   const out = []; t.split(/\n/).forEach(l => { l = l.trim(); if (!l) return; const i = l.indexOf(":"), g = (i < 0 ? l : l.slice(0, i)).trim(), cats = i < 0 ? [] : listaComas(l.slice(i + 1)); if (g && !out.some(x => x.g === g)) out.push({ g, cats: cats.length ? cats : ["General"] }) });

@@ -52,6 +52,17 @@
         // si las tablas del calendario, del tablero o de las huchas aún no existen, la app sigue funcionando sin ellos
         return { hogar, miembros: ok(ms), gastos, tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data, tareas: tas.error ? [] : tas.data, movimientos: mvs.error ? [] : mvs.data };
       },
+      // para exportar: todos los gastos del hogar entre dos fechas (vacías = sin límite), de 1000 en 1000 (máximo de Supabase por consulta)
+      exportarGastos: async (desde, hasta) => {
+        const out = [];
+        for (let i = 0; ; i += 1000) {
+          let q = sb.from("gastos").select("*");
+          if (desde) q = q.gte("fecha", desde);
+          if (hasta) q = q.lte("fecha", hasta);
+          const p = ok(await q.order("fecha").order("creado").order("id").range(i, i + 999));
+          out.push(...p); if (p.length < 1000) return out;
+        }
+      },
       addGastos: async filas => ok(await sb.from("gastos").insert(filas).select()),
       // gastos fijos: el índice único (recurrente_id, periodo) evita duplicados si los dos móviles lo intentan a la vez
       addGastosFijos: async filas => ok(await sb.from("gastos").upsert(filas, { onConflict: "recurrente_id,periodo", ignoreDuplicates: true }).select()),
@@ -189,6 +200,7 @@
       miMiembro: async () => db.miembros[0],
       crearHogar: async () => { }, unirse: async () => { },
       cargar: async () => clone(db),
+      exportarGastos: async (desde, hasta) => clone(db.gastos.filter(g => (!desde || g.fecha >= desde) && (!hasta || g.fecha <= hasta)).sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha)),
       addGastos: async filas => { const out = filas.map(f => ({ id: uid(), ...f })); db.gastos.push(...out); save(); return clone(out) },
       addGastosFijos: async filas => {
         const out = filas.filter(f => !db.gastos.some(g => g.recurrente_id === f.recurrente_id && g.periodo === f.periodo)).map(f => ({ id: uid(), ...f }));
