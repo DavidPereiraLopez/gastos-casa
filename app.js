@@ -149,7 +149,7 @@ $("mes-ant").addEventListener("click", () => { mesVista = addMes(mesVista, -1); 
 $("mes-sig").addEventListener("click", () => { if (mesVista < ym(today)) { mesVista = addMes(mesVista, 1); pintar() } });
 
 function pintar() {
-  $("hola").textContent = "Hola, " + yo.nombre;
+  $("hola").innerHTML = `Hola, <em>${esc(yo.nombre)}</em>`;
   $("mes-t").textContent = nombreMes(mesVista);
   $("mes-sig").disabled = mesVista >= ym(today);
   pintarInicio(); pintarBolsas(); pintarMovs(); pintarCal(); pintarTab(); pintarCompra(); pintarPres(); pintarMas();
@@ -159,13 +159,21 @@ function pintar() {
 // ---------------- Inicio ----------------
 const delMes = k => data.filter(x => x.f.startsWith(k));
 const sinCategoria = () => data.filter(x => !x.c).sort((a, b) => b.f.localeCompare(a.f));
+// La cifra del mes sube contando hasta su valor (como un marcador), salvo con "reducir movimiento"
+function contar(el, fin) {
+  const ini = Number(el.dataset.v || 0); el.dataset.v = fin; cancelAnimationFrame(el._raf);
+  if (ini === fin || matchMedia("(prefers-reduced-motion: reduce)").matches) { el.textContent = fmt(fin); return }
+  const t0 = performance.now(), dur = 700;
+  const paso = t => { const p = Math.min(1, (t - t0) / dur), e = 1 - (1 - p) ** 3; el.textContent = fmt(ini + (fin - ini) * e); if (p < 1) el._raf = requestAnimationFrame(paso) };
+  el._raf = requestAnimationFrame(paso);
+}
 function pintarInicio() {
   const mes = delMes(mesVista), total = mes.reduce((a, x) => a + x.i, 0);
   const pres = Object.values(hogar.presupuestos).reduce((a, v) => a + (Number(v) || 0), 0);
   const esActual = mesVista === ym(today);
   const [vy, vm] = mesVista.split("-").map(Number);
   $("s-lbl").textContent = esActual ? "Gastado este mes" : "Gastado en " + nombreMes(mesVista);
-  $("s-total").textContent = fmt(total);
+  contar($("s-total"), total);
   $("s-prog").style.width = pres ? Math.min(100, total / pres * 100) + "%" : "0";
   const quedan = new Date(vy, vm, 0).getDate() - today.getDate();
   $("s-meta").textContent = !pres ? "Toca aquí para poner un presupuesto y ver cuánto te queda."
@@ -552,9 +560,9 @@ $("pe-form").addEventListener("submit", e => {
 $("personas").addEventListener("click", e => { const b = e.target.closest("[data-pe]"); if (b) dosToques(b, () => guardarPersonas(hogar.personas.filter(p => p.nombre !== b.dataset.pe), "Quitada.")) });
 
 // ---------------- Apariencia (tema.js) ----------------
-const NOM_COLOR = { verde: "Verde", azul: "Azul", morado: "Morado", rosa: "Rosa", naranja: "Naranja", rojo: "Rojo", turquesa: "Turquesa", grafito: "Grafito" };
+const NOM_COLOR = { indigo: "Índigo", verde: "Verde", azul: "Azul", morado: "Morado", rosa: "Rosa", naranja: "Naranja", rojo: "Rojo", turquesa: "Turquesa", grafito: "Grafito" };
 function pintarApariencia() {
-  const t = tema.leer(), modo = t.modo || "oscuro", color = t.color || "morado", propio = !tema.COLORES[color];
+  const t = tema.leer(), modo = t.modo || "claro", color = t.color || "indigo", propio = !tema.COLORES[color];
   $("ap-modo").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === modo));
   $("ap-color").innerHTML = Object.entries(tema.COLORES).map(([k, [cl, os]]) => `<button type="button" class="color" data-c="${k}" style="--cl:${cl};--os:${os}" aria-pressed="${k === color}" aria-label="${NOM_COLOR[k]}" title="${NOM_COLOR[k]}"></button>`).join("")
     + `<label class="color otro" title="Otro color" aria-pressed="${propio}" style="${propio ? `--cl:${color};--os:${color}` : ""}"><input type="color" id="ap-otro" value="${propio ? color : "#1f7a55"}" aria-label="Otro color"><span aria-hidden="true">+</span></label>`;
