@@ -1,31 +1,42 @@
 /* Layout: app móvil de una columna; cabecera con el mes, vistas por pestañas, barra inferior fija con botón central "+" y hoja inferior para apuntar gastos */
 :root{
-  --bg:#eef2ef; --surface:#ffffff; --fg:#17201b; --muted:#5d6a62; --line:#dce3de;
-  --accent:#1f7a55; --accent-ink:#ffffff; --soft:#e2eee7;
-  --ok:#1f7a55; --warn:#a85a00; --bad:#c62f2e;
-  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#6250d6; --c8:#e34948;
-  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --page:#f1f0fb; --bg:rgb(79 70 229 / .06); --surface:#ffffff; --fg:#1b1840; --muted:#5d5e86; --line:rgb(40 40 110 / .11);
+  --glass:rgb(255 255 255 / .66); --glass-line:rgb(255 255 255 / .9); --sheet:rgb(250 250 255 / .9); --seg-on:#ffffff;
+  --shadow:0 10px 30px rgb(60 50 150 / .09); --glow:0 10px 28px rgb(108 79 224 / .32);
+  --orb1:rgb(139 92 246 / .22); --orb2:rgb(59 130 246 / .14); --orb3:rgb(236 72 153 / .10); --page2:#f6f3ff;
+  --accent:#6c4fe0; --accent-ink:#ffffff; --accent-strong:#6c4fe0; --soft:rgb(108 79 224 / .12);
+  --ok:#0f8a5f; --warn:#a85a00; --bad:#d0314f;
+  --c1:#2a78d6; --c2:#eb6834; --c3:#1baf7a; --c4:#eda100; --c5:#e87ba4; --c6:#008300; --c7:#6c4fe0; --c8:#e34948;
+  --s1:#6c4fe0; --s2:#2a78d6; --s3:#e0559a;
+  --grad:linear-gradient(135deg,var(--accent-strong),color-mix(in oklab,var(--accent-strong) 55%,#4338ca));
   --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
   --body:"Figtree",ui-sans-serif,system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
   --nav-h:64px;
 }
+/* Oscuro "cristal" (por defecto, ver tema.js): fondo azul noche con luces moradas */
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0f1411; --surface:#19201c; --fg:#e7ede9; --muted:#9aa89f; --line:#2a342e;
-  --accent:#5cc394; --accent-ink:#0b1810; --soft:#1e2d25;
-  --ok:#5cc394; --warn:#e7a144; --bad:#ef6b6a;
-  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c8:#e66767;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; color-scheme:dark}}
+  --page:#0a0e2c; --bg:rgb(255 255 255 / .06); --surface:#191d4a; --fg:#eef0ff; --muted:#a6abd8; --line:rgb(255 255 255 / .10);
+  --glass:rgb(255 255 255 / .065); --glass-line:rgb(255 255 255 / .12); --sheet:rgb(22 25 66 / .86); --seg-on:rgb(255 255 255 / .16);
+  --shadow:0 10px 34px rgb(0 0 0 / .28),inset 0 1px 0 rgb(255 255 255 / .06); --glow:0 10px 32px rgb(124 92 240 / .5);
+  --orb1:rgb(124 92 240 / .5); --orb2:rgb(59 110 246 / .3); --orb3:rgb(168 85 247 / .28); --page2:#0b1236;
+  --accent:#a78bfa; --accent-ink:#160d3a; --accent-strong:#7c5cf0; --soft:rgb(167 139 250 / .16);
+  --ok:#34d399; --warn:#fbbf24; --bad:#fb7185;
+  --c1:#60a5fa; --c2:#fb923c; --c3:#34d399; --c4:#fbbf24; --c5:#f472b6; --c6:#4ade80; --c7:#8b5cf6; --c8:#f87171;
+  --s1:#a78bfa; --s2:#60a5fa; --s3:#f472b6; color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0f1411; --surface:#19201c; --fg:#e7ede9; --muted:#9aa89f; --line:#2a342e;
-  --accent:#5cc394; --accent-ink:#0b1810; --soft:#1e2d25;
-  --ok:#5cc394; --warn:#e7a144; --bad:#ef6b6a;
-  --c1:#3987e5; --c2:#d95926; --c3:#199e70; --c4:#c98500; --c5:#d55181; --c6:#008300; --c7:#9085e9; --c8:#e66767;
-  --s1:#3987e5; --s2:#d95926; --s3:#199e70; color-scheme:dark}
+  --page:#0a0e2c; --bg:rgb(255 255 255 / .06); --surface:#191d4a; --fg:#eef0ff; --muted:#a6abd8; --line:rgb(255 255 255 / .10);
+  --glass:rgb(255 255 255 / .065); --glass-line:rgb(255 255 255 / .12); --sheet:rgb(22 25 66 / .86); --seg-on:rgb(255 255 255 / .16);
+  --shadow:0 10px 34px rgb(0 0 0 / .28),inset 0 1px 0 rgb(255 255 255 / .06); --glow:0 10px 32px rgb(124 92 240 / .5);
+  --orb1:rgb(124 92 240 / .5); --orb2:rgb(59 110 246 / .3); --orb3:rgb(168 85 247 / .28); --page2:#0b1236;
+  --accent:#a78bfa; --accent-ink:#160d3a; --accent-strong:#7c5cf0; --soft:rgb(167 139 250 / .16);
+  --ok:#34d399; --warn:#fbbf24; --bad:#fb7185;
+  --c1:#60a5fa; --c2:#fb923c; --c3:#34d399; --c4:#fbbf24; --c5:#f472b6; --c6:#4ade80; --c7:#8b5cf6; --c8:#f87171;
+  --s1:#a78bfa; --s2:#60a5fa; --s3:#f472b6; color-scheme:dark}
 
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+body{margin:0;background:var(--page);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
 img{max-width:100%}
 [hidden]{display:none!important}
 button{font:inherit;color:inherit;touch-action:manipulation;-webkit-user-select:none;user-select:none} /* sin zoom ni selección al tocar dos veces (botones de confirmar) */
@@ -403,3 +414,70 @@ body.arrastrando .tablero{scroll-snap-type:none}
 .saldo{cursor:pointer}
 .ir-pres{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;border:0;text-align:left;cursor:pointer;color:var(--fg);font:inherit;font-size:.92rem}
 .ir-pres > span:last-child{font-size:1.5rem;color:var(--muted)}
+
+/* ================= Estilo cristal (glassmorfismo) =================
+   Fondo con luces difusas fijo, tarjetas translúcidas con desenfoque, acentos luminosos y transiciones suaves.
+   Va al final para mandar sobre lo anterior sin tocar cada sección. */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(60% 42% at 12% -4%,var(--orb1),transparent 70%),radial-gradient(55% 38% at 105% 38%,var(--orb2),transparent 70%),radial-gradient(70% 46% at 40% 108%,var(--orb3),transparent 70%),linear-gradient(180deg,var(--page2),var(--page))}
+.glass,.card,.movs,.mesnav,.tip{background:var(--glass);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(18px) saturate(150%);backdrop-filter:blur(18px) saturate(150%);box-shadow:var(--shadow)}
+.card{border-radius:22px;padding:18px}
+.card h2{font-weight:600;letter-spacing:-.01em}
+.hola{background:linear-gradient(95deg,var(--fg) 30%,var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.mesnav{padding:3px}
+.field,.pr .row1 input{background:var(--bg);border-color:var(--glass-line)}
+.field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
+.demo{border:1px solid var(--glass-line)}
+
+/* Tarjeta del mes: degradado morado luminoso */
+.saldo{background:radial-gradient(120% 90% at 100% 0%,rgb(255 255 255 / .22),transparent 55%),var(--grad);color:#fff;border-color:rgb(255 255 255 / .18);box-shadow:var(--glow)}
+.saldo .big{text-shadow:0 0 22px rgb(255 255 255 / .35)}
+.prog{background:rgb(255 255 255 / .22)}
+.prog i{background:#fff;box-shadow:0 0 10px rgb(255 255 255 / .7)}
+
+/* Botones y acentos */
+.btn{border-radius:12px;border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.btn.primary,.tecla.ok,.fab,.tab-n,.cp.hecho .cb{background:var(--grad);color:#fff;border-color:transparent}
+.btn.primary,.tecla.ok{box-shadow:var(--glow)}
+.cp.hecho .cb::after{border-color:#fff}
+.fab{box-shadow:var(--glow),inset 0 1px 0 rgb(255 255 255 / .35)}
+.chip{background:var(--bg);border-color:var(--glass-line)}
+.chip[aria-pressed="true"],.tab-top .seg button[aria-pressed="true"],.cd[aria-selected="true"]{background:var(--grad);border-color:transparent;color:#fff;box-shadow:0 4px 14px color-mix(in srgb,var(--accent-strong) 40%,transparent)}
+.cd[aria-selected="true"] .n{color:#fff}
+.seg button[aria-pressed="true"]{background:var(--seg-on);box-shadow:0 1px 4px rgb(0 0 0 / .12)}
+.fill{background:linear-gradient(90deg,var(--accent-strong),var(--accent))}
+.fill.ok{background:var(--ok)} .fill.warn{background:var(--warn)} .fill.bad{background:var(--bad)}
+.hb.on .hfill{background:linear-gradient(180deg,var(--accent),var(--accent-strong));box-shadow:0 0 12px color-mix(in srgb,var(--accent) 60%,transparent)}
+.ln.s1{filter:drop-shadow(0 2px 6px color-mix(in srgb,var(--s1) 70%,transparent))}
+.code{border:1px solid var(--glass-line)}
+
+/* Barra inferior y hojas: cristal más opaco para que se lea sobre el contenido */
+.nav{background:var(--sheet);border-top:1px solid var(--glass-line);-webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%)}
+.tab[aria-current="page"] svg{filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 70%,transparent))}
+.velo{background:rgb(5 6 25 / .45);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.hoja{background:var(--sheet);border:1px solid var(--glass-line);border-bottom:0;-webkit-backdrop-filter:blur(28px) saturate(160%);backdrop-filter:blur(28px) saturate(160%);box-shadow:0 -10px 40px rgb(0 0 0 / .3)}
+.tecla{background:var(--bg);border:1px solid var(--glass-line)}
+
+/* Listas dentro de tarjetas */
+.al,.ev,.ta,.bo,.cp,.th{border:1px solid var(--glass-line)}
+.cp.hecho{border-color:transparent}
+.cp.nuevo{box-shadow:0 0 0 2px var(--accent),0 0 18px color-mix(in srgb,var(--accent) 40%,transparent)}
+.cp-otras{background:var(--glass);border-color:var(--glass-line)}
+.cp-otras .cp{background:var(--bg)}
+
+/* Movimiento suave: aparecer al cambiar de sección y respuesta al tocar */
+.btn,.chip,.fab,.tecla,.cat,.bo,.cp-b,.mv,.lg,.hb,.ir-pres,.saldo,.tab,.seg button,.cd,.color{transition:transform .18s cubic-bezier(.2,.7,.2,1),background-color .2s,box-shadow .2s,color .2s,opacity .2s}
+.btn:active,.chip:active,.tecla:active,.cat:active,.bo:active,.ir-pres:active,.saldo:active,.seg button:active,.color:active{transform:scale(.96)}
+.fab:active{transform:translateY(-14px) scale(.92)}
+.mv:active,.cp-b:active,.lg:active{opacity:.7}
+@media (hover:hover){.card.saldo:hover,.bo:hover{transform:translateY(-2px)}}
+@media (prefers-reduced-motion:no-preference){
+  .vista:not([hidden])>*{animation:entra .45s cubic-bezier(.2,.7,.2,1) backwards}
+  .vista>*:nth-child(2){animation-delay:.05s}.vista>*:nth-child(3){animation-delay:.1s}.vista>*:nth-child(4){animation-delay:.15s}.vista>*:nth-child(n+5){animation-delay:.2s}
+  .velo:not([hidden]){animation:velo .2s ease-out}
+  @keyframes entra{from{opacity:0;transform:translateY(12px)}}
+  @keyframes velo{from{opacity:0}}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.demo{margin-bottom:14px}
+.chip.gch[aria-pressed="true"]{box-shadow:none}

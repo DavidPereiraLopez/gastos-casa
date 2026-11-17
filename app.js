@@ -554,7 +554,7 @@ $("personas").addEventListener("click", e => { const b = e.target.closest("[data
 // ---------------- Apariencia (tema.js) ----------------
 const NOM_COLOR = { verde: "Verde", azul: "Azul", morado: "Morado", rosa: "Rosa", naranja: "Naranja", rojo: "Rojo", turquesa: "Turquesa", grafito: "Grafito" };
 function pintarApariencia() {
-  const t = tema.leer(), modo = t.modo || "auto", color = t.color || "verde", propio = !tema.COLORES[color];
+  const t = tema.leer(), modo = t.modo || "oscuro", color = t.color || "morado", propio = !tema.COLORES[color];
   $("ap-modo").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === modo));
   $("ap-color").innerHTML = Object.entries(tema.COLORES).map(([k, [cl, os]]) => `<button type="button" class="color" data-c="${k}" style="--cl:${cl};--os:${os}" aria-pressed="${k === color}" aria-label="${NOM_COLOR[k]}" title="${NOM_COLOR[k]}"></button>`).join("")
     + `<label class="color otro" title="Otro color" aria-pressed="${propio}" style="${propio ? `--cl:${color};--os:${color}` : ""}"><input type="color" id="ap-otro" value="${propio ? color : "#1f7a55"}" aria-label="Otro color"><span aria-hidden="true">+</span></label>`;
