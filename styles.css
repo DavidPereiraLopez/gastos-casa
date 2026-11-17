@@ -434,20 +434,20 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
 .mesnav span{font-weight:700}
 .field,.pr .row1 input{background:var(--surface);border-color:var(--glass-line)}
 .field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--soft)}
-.demo{background:var(--soft);border:1px solid var(--glass-line);margin-bottom:14px}
+.demo{background:var(--surface);border:1px solid var(--glass-line);margin-bottom:14px}
 .hint{color:var(--muted)}
 .dia{font-weight:700;letter-spacing:.06em}
 .big,.bo .v,.mv .a,.lg .v,.v,.monto .n,.mo-imp{font-weight:600;letter-spacing:-.03em}
 .mv .t,.bo .nm b,.ta-b .t{font-weight:600;letter-spacing:-.01em}
 
-/* Tarjeta del mes: panel menta, como el panel destacado del ejemplo (texto oscuro: el menta es claro) */
-.saldo{background:radial-gradient(90% 120% at 100% 0%,rgb(255 255 255 / .45),transparent 60%),linear-gradient(160deg,var(--navy2),var(--navy));color:var(--nav-fg);border-color:transparent;box-shadow:0 14px 34px rgb(80 110 80 / .25)}
-.saldo .lbl{display:inline-flex;align-items:center;gap:6px;justify-self:start;font-size:.76rem;font-weight:600;background:rgb(255 255 255 / .45);padding:3px 10px 3px 8px;border-radius:999px;opacity:1}
-.saldo .lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--cafe);box-shadow:0 0 6px rgb(135 102 85 / .6)}
-.saldo .big{font-size:2.7rem;letter-spacing:-.04em;text-shadow:0 1px 0 rgb(255 255 255 / .35)}
-.saldo .meta{color:var(--on-navy);opacity:1;font-weight:500}
-.prog{height:8px;background:rgb(255 255 255 / .45)}
-.prog i{background:linear-gradient(90deg,var(--sand),var(--cafe))}
+/* Tarjeta del mes: blanca como las demás, con la etiqueta y la barra en verde */
+.saldo{background:var(--surface);color:var(--fg);border-color:var(--glass-line);box-shadow:var(--shadow)}
+.saldo .lbl{display:inline-flex;align-items:center;gap:6px;justify-self:start;font-size:.76rem;font-weight:600;background:var(--soft);color:var(--accent);padding:3px 10px 3px 8px;border-radius:999px;opacity:1}
+.saldo .lbl::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent-strong);box-shadow:0 0 6px var(--accent-strong)}
+.saldo .big{font-size:2.7rem;letter-spacing:-.04em}
+.saldo .meta{color:var(--muted);opacity:1;font-weight:500}
+.prog{height:8px;background:var(--soft)}
+.prog i{background:linear-gradient(90deg,var(--accent-strong),var(--accent))}
 
 /* Botones y selección */
 .btn{border-radius:12px}
@@ -469,10 +469,10 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
 .al .ic{border-radius:8px;width:26px;height:26px;color:#fff}
 .al.info .ic{background:var(--accent)}
 .ev,.ta,.bo,.cp,.th{border:1px solid var(--glass-line)}
-.bo,.ev,.ta,.cp{background:var(--bg)}
+.bo,.ev,.ta,.cp,.al,.tecla{background:var(--surface)}
 .cp.hecho{border-color:transparent;background:none}
 .cp-otras{background:var(--glass)}
-.cp-otras .cp{background:var(--bg)}
+.cp-otras .cp{background:var(--surface)}
 .pill{border-radius:999px}
 .code{border:1px solid var(--glass-line)}
 
@@ -492,7 +492,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
 .velo{background:rgb(20 30 20 / .3);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
 .hoja{background:var(--sheet);-webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);box-shadow:0 -10px 40px rgb(30 45 30 / .15)}
 .hoja .ch h2{font-weight:700;letter-spacing:-.03em}
-.tecla{background:var(--bg);border:1px solid var(--glass-line);font-weight:600}
+.tecla{background:var(--surface);border:1px solid var(--glass-line);font-weight:600}
 
 /* Movimiento suave: aparecer al cambiar de sección y respuesta al tocar */
 .btn,.chip,.fab,.tecla,.cat,.bo,.cp-b,.mv,.lg,.hb,.ir-pres,.saldo,.tab,.seg button,.cd,.color{transition:transform .18s cubic-bezier(.2,.7,.2,1),background-color .2s,box-shadow .2s,color .2s,opacity .2s}
