@@ -560,9 +560,9 @@ $("pe-form").addEventListener("submit", e => {
 $("personas").addEventListener("click", e => { const b = e.target.closest("[data-pe]"); if (b) dosToques(b, () => guardarPersonas(hogar.personas.filter(p => p.nombre !== b.dataset.pe), "Quitada.")) });
 
 // ---------------- Apariencia (tema.js) ----------------
-const NOM_COLOR = { indigo: "Índigo", verde: "Verde", azul: "Azul", morado: "Morado", rosa: "Rosa", naranja: "Naranja", rojo: "Rojo", turquesa: "Turquesa", grafito: "Grafito" };
+const NOM_COLOR = { cafe: "Café", menta: "Menta", indigo: "Índigo", verde: "Verde", azul: "Azul", morado: "Morado", rosa: "Rosa", naranja: "Naranja", rojo: "Rojo", turquesa: "Turquesa", grafito: "Grafito" };
 function pintarApariencia() {
-  const t = tema.leer(), modo = t.modo || "claro", color = t.color || "indigo", propio = !tema.COLORES[color];
+  const t = tema.leer(), modo = t.modo || "claro", color = t.color || "cafe", propio = !tema.COLORES[color];
   $("ap-modo").querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === modo));
   $("ap-color").innerHTML = Object.entries(tema.COLORES).map(([k, [cl, os]]) => `<button type="button" class="color" data-c="${k}" style="--cl:${cl};--os:${os}" aria-pressed="${k === color}" aria-label="${NOM_COLOR[k]}" title="${NOM_COLOR[k]}"></button>`).join("")
     + `<label class="color otro" title="Otro color" aria-pressed="${propio}" style="${propio ? `--cl:${color};--os:${color}` : ""}"><input type="color" id="ap-otro" value="${propio ? color : "#1f7a55"}" aria-label="Otro color"><span aria-hidden="true">+</span></label>`;
