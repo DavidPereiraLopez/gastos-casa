@@ -203,10 +203,12 @@
       productos.push(...["Ibuprofeno", "Paracetamol", "Tacos para la pared"].map((nombre, i) => ({ lista: "otras", clave: P.clave(nombre), nombre, seccion: null, veces: 4 - i, ultima: new Date().toISOString() })));
       return { compra: out, productos };
     }
+    let rutinasN = 0;
     function noraDemo() {
       const hace = new Date(today.getTime() - 9 * 864e5).toISOString();
-      const ru = (nombre, icono, inicio, fin, f) => ({ id: uid(), peque: "Nora", nombre, icono, inicio, fin, dias: [1, 2, 3, 4, 5, 6, 7], gana: 1, pierde: 1, aviso_min: 3, activa: true, creado: hace, ...f });
-      const rutinas = [ru("Vestirse", "👗", "08:30", "08:45", { dias: [1, 2, 3, 4, 5] }), ru("Desayunar", "🥣", "09:00", "09:15"), ru("Lavarse los dientes", "🪥", "09:15", "09:20"),
+      const COL = ["#4cb8f5", "#ff7aa8", "#ffa41b", "#5cc977", "#a58bff", "#ff6b4a", "#22c3b5", "#f5cf2a", "#c0845e"];
+      const ru = (nombre, icono, inicio, fin, f) => ({ id: uid(), peque: "Nora", nombre, icono, color: COL[rutinasN++ % COL.length], inicio, fin, dias: [1, 2, 3, 4, 5, 6, 7], gana: 1, pierde: 1, aviso_min: 3, activa: true, creado: hace, ...f });
+      const rutinas = [ru("Vestirse", "👗", "08:30", "08:45", { dias: [1, 2, 3, 4, 5] }), ru("Desayunar", "🥣", "09:00", "09:15"), ru("Lavarse los dientes", "🪥", "09:15", "09:20"), ru("Zapatos y abrigo", "👟", "09:20", "09:30"), ru("Al cole", "🎒", "09:30", "09:45", { dias: [1, 2, 3, 4, 5] }),
         ru("Recoger los juguetes", "🧸", "13:30", "13:40"), ru("Comer", "🍝", "14:00", "14:30"), ru("Baño", "🛁", "20:00", "20:20"), ru("Cenar", "🍽️", "20:30", "21:00"),
         ru("Pijama y cuento", "📖", "21:00", "21:15"), ru("A dormir", "🌙", "21:15", "21:30", { aviso_min: 5 })];
       const registro = [];

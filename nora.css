@@ -31,16 +31,19 @@
 #n-reloj{width:100%;height:100%;display:block;overflow:visible}
 .n-borde{fill:#ffd36b;filter:drop-shadow(0 8px 18px rgb(255 160 60 / .35))}
 .n-cara{fill:#fff}
-.n-zona{fill:var(--n-azul);opacity:.85}
-.n-zona.urge{fill:var(--n-urge);animation:n-latido 1s ease-in-out infinite}
-.n-zona.luego{fill:#b9e3fb;opacity:.7}
-.n-hecho-z{fill:#e9eef3}
+.n-franja{stroke:#fff;stroke-width:1.5;stroke-linejoin:round;opacity:.92}
+.n-franja.luego,.n-franja.nueva{opacity:.6}
+.n-franja.bien,.n-franja.no,.n-franja.tarde{opacity:.25}
+.n-franja.urge{animation:n-latido 1s ease-in-out infinite}
+.n-pasado{opacity:.18}
+.n-fi text{font-size:13px;text-anchor:middle;dominant-baseline:central}
+.n-fi.luego,.n-fi.nueva{opacity:.85}.n-fi.bien,.n-fi.no,.n-fi.tarde{opacity:.45}
 @keyframes n-latido{50%{opacity:.5}}
 .mm{stroke:#cfd6de;stroke-width:1}.mh{stroke:#9aa6b4;stroke-width:2.2;stroke-linecap:round}
 .n-num{font:800 17px "Baloo 2",sans-serif;text-anchor:middle;dominant-baseline:central;fill:var(--n-ink)}
 .n-num.c1{fill:#ff5d8f}.n-num.c2{fill:#ff9f1c}.n-num.c3{fill:#2bb3e6}.n-num.c4{fill:#3cb371}.n-num.c5{fill:#8f6bff}.n-num.c0{fill:#e5484d}
-.n-hora{stroke:var(--n-ink);stroke-width:7;stroke-linecap:round}
-.n-min{stroke:#ff5d8f;stroke-width:4.5;stroke-linecap:round}
+.n-hora{stroke:var(--n-ink);stroke-width:8;stroke-linecap:round;filter:drop-shadow(0 0 1.5px #fff)}
+.n-min{stroke:var(--n-ink);stroke-width:4.5;stroke-linecap:round;filter:drop-shadow(0 0 1.5px #fff)}
 .n-eje{fill:var(--n-ink);stroke:#fff;stroke-width:2}
 .n-meta{font-size:15px;text-anchor:middle;dominant-baseline:central}
 
@@ -66,10 +69,11 @@
 .n-bola .i{width:54px;height:54px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:1.7rem;box-shadow:0 3px 10px rgb(60 40 80 / .1)}
 .n-bola .h{font-size:.85rem;font-weight:700;color:var(--n-soft)}
 .n-bola .b{position:absolute;top:-6px;right:-6px;font-size:1rem;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#fff;box-shadow:0 2px 6px rgb(0 0 0 / .12)}
+.n-bola .i{background:color-mix(in srgb,var(--c,#fff) 22%,#fff);box-shadow:0 0 0 3px color-mix(in srgb,var(--c,#ddd) 55%,#fff)}
 .n-bola.bien .i{background:#fff6cf;box-shadow:0 0 0 3px var(--n-oro)}
 .n-bola.no .i{opacity:.45;filter:grayscale(.8)}.n-bola.no .b{color:var(--n-urge);font-size:.8rem}
 .n-bola.tarde .i{opacity:.75}
-.n-bola.ahora .i{box-shadow:0 0 0 4px var(--n-azul);animation:n-flota 1.6s ease-in-out infinite}
+.n-bola.ahora .i{box-shadow:0 0 0 4px var(--c,var(--n-azul));animation:n-flota 1.6s ease-in-out infinite}
 .n-bola.ahora .h{color:#1f8fd0}
 
 .n-premio{width:100%;display:flex;align-items:center;gap:12px;background:#fff;border-radius:22px;padding:12px 16px;box-shadow:0 6px 20px rgb(60 40 80 / .08)}
@@ -101,7 +105,7 @@
 .np-l{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .np-l li{display:flex;align-items:center;gap:10px;min-width:0}
 .np-l li.vacio{color:var(--muted);font-size:.9rem}
-.np-l .ri{font-size:1.6rem;width:42px;height:42px;border-radius:12px;background:var(--bg);display:grid;place-items:center;flex:0 0 auto}
+.np-l .ri{font-size:1.6rem;width:42px;height:42px;border-radius:12px;background:color-mix(in srgb,var(--c,var(--bg)) 28%,var(--surface));box-shadow:inset 4px 0 0 var(--c,transparent);display:grid;place-items:center;flex:0 0 auto}
 .np-l .rt{flex:1;display:grid;min-width:0;line-height:1.25}
 .np-l .rt b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .np-l .rt span{font-size:.78rem;color:var(--muted)}
@@ -126,3 +130,7 @@
 .n-icos button{height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:1.45rem;cursor:pointer;line-height:1}
 .n-icos button[aria-pressed="true"]{background:#fff3c4;border-color:#ffb020;box-shadow:inset 0 0 0 1px #ffb020}
 @media (max-width:380px){.n-nom{font-size:1.7rem}.n-ico{font-size:3.6rem}.n-hecho{font-size:1.45rem;padding:12px 26px}}
+.n-cols{display:flex;flex-wrap:wrap;gap:8px}
+.n-cols button{width:36px;height:36px;border-radius:50%;border:3px solid #fff;background:var(--c);cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.n-cols button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--c);transform:scale(1.08)}
+.n-icos button[aria-pressed="true"]{background:color-mix(in srgb,var(--c,#ffb020) 25%,#fff);border-color:var(--c,#ffb020);box-shadow:inset 0 0 0 1px var(--c,#ffb020)}

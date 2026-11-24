@@ -12,6 +12,9 @@ const diaDe = f => new Date(f + "T12:00");
 const PEQUE = "Nora";
 const DIAS = ["L", "M", "X", "J", "V", "S", "D"];
 const ICONOS = ["🥣", "🍝", "🍽️", "🥛", "🍎", "🪥", "🛁", "🚿", "🧼", "🚽", "👗", "👟", "🧥", "🎒", "🏫", "🚗", "🧸", "🧩", "🎨", "✏️", "📖", "🎵", "💃", "⚽", "🌳", "🐶", "🌙", "😴", "🛏️", "💊", "💧", "🧹", "⏰", "⭐"];
+// colores de las tareas (vivos y que se distingan bien entre sí)
+const COLORES = ["#4cb8f5", "#ff7aa8", "#ffa41b", "#5cc977", "#a58bff", "#ff6b4a", "#22c3b5", "#f5cf2a", "#c0845e", "#6c7ff2"];
+const colorDe = r => r.color || COLORES[Math.max(0, N.rutinas.indexOf(r)) % COLORES.length];
 const ICONOS_P = ["🎁", "🍕", "🍦", "🍿", "🎠", "🛝", "🎬", "📚", "🧸", "🎨", "🏊", "🚲", "🦄", "🎈", "🍰", "🌟"];
 
 let store = null, N = null, abierta = false, modo = "nina", pTab = "hoy", pDia = iso(new Date());
@@ -108,25 +111,28 @@ function sector(a0, a1, r) {
   const [x0, y0] = P(a0, r), [x1, y1] = P(a0 + d, r);
   return `M100 100 L${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${d > Math.PI ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}Z`;
 }
-// el color va de donde está la aguja larga hasta donde acaba la rutina: "cuando la aguja llegue al final del color, se acaba"
-function pintarReloj(r, st) {
-  const d = new Date(), m = d.getMinutes() + d.getSeconds() / 60, h = (d.getHours() % 12) + m / 60, t = ahoraMin();
-  let zona = "";
-  if (r && (st === "ahora" || mins(r.inicio) - t <= 50)) { // lo siguiente solo se pinta si empieza pronto
-    const fin = mins(r.fin), ini = mins(r.inicio), largo = Math.min(fin - ini, 59.9);
-    if (st === "ahora") {
-      const urg = fin - t <= (r.aviso_min || 0);
-      zona = `<path d="${sector(angMin(ini), angMin(t), 84)}" class="n-hecho-z"/><path d="${sector(angMin(t), angMin(Math.min(fin, t + 59.9)), 84)}" class="n-zona${urg ? " urge" : ""}"/>`;
-    } else zona = `<path d="${sector(angMin(ini), angMin(ini + largo), 84)}" class="n-zona luego"/>`;
-    const [fx, fy] = P(angMin(st === "ahora" ? Math.min(fin, t + 59.9) : ini + largo), 70);
-    zona += `<text x="${fx.toFixed(1)}" y="${(fy + 1).toFixed(1)}" class="n-meta">🏁</text>`;
-  }
+// Franjas de colores: la hora que viene (lo que recorrerá la aguja larga en una vuelta), cada rutina con su color y su icono.
+// "Cuando la aguja llegue al final de su color, se acaba esa tarea."
+function pintarReloj() {
+  const d = new Date(), m = d.getMinutes() + d.getSeconds() / 60, h = (d.getHours() % 12) + m / 60, t = ahoraMin(), hoy = iso(d);
+  let zona = "", iconos = "";
+  rutinasDe(hoy).forEach(r => {
+    const ini = mins(r.inicio), fin = mins(r.fin), e = estado(r, hoy), c = colorDe(r);
+    const a = Math.max(ini, t), b = Math.min(fin, t + 59.5);
+    // lo que ya ha pasado de la tarea de ahora, más clarito
+    if (e === "ahora" && ini < t) zona += `<path d="${sector(angMin(Math.max(ini, t - 59.5)), angMin(t), 84)}" fill="${c}" class="n-pasado"/>`;
+    if (b <= a) return;
+    const urg = e === "ahora" && fin - t <= (r.aviso_min || 0);
+    zona += `<path d="${sector(angMin(a), angMin(b), 84)}" fill="${c}" class="n-franja ${e}${urg ? " urge" : ""}"/>`;
+    const [ix, iy] = P(angMin((a + b) / 2), b - a < 6 ? 60 : 50);
+    iconos += `<g class="n-fi ${e}"><circle cx="${ix.toFixed(1)}" cy="${iy.toFixed(1)}" r="12" fill="#fff" stroke="${c}" stroke-width="2.5"/><text x="${ix.toFixed(1)}" y="${(iy + .8).toFixed(1)}">${esc(r.icono)}</text></g>`;
+  });
   let marcas = "";
   for (let i = 0; i < 60; i++) { const [x0, y0] = P(i / 60 * 2 * Math.PI, 90), [x1, y1] = P(i / 60 * 2 * Math.PI, i % 5 ? 87 : 83); marcas += `<line x1="${x0.toFixed(2)}" y1="${y0.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${y1.toFixed(2)}" class="${i % 5 ? "mm" : "mh"}"/>` }
   let nums = "";
   for (let i = 1; i <= 12; i++) { const [x, y] = P(i / 12 * 2 * Math.PI, 70); nums += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" class="n-num c${i % 6}">${i}</text>` }
   const [hx, hy] = P(h / 12 * 2 * Math.PI, 44), [mx, my] = P(m / 60 * 2 * Math.PI, 74);
-  $("n-reloj").innerHTML = `<circle cx="100" cy="100" r="95" class="n-borde"/><circle cx="100" cy="100" r="90" class="n-cara"/>${zona}${marcas}${nums}
+  $("n-reloj").innerHTML = `<circle cx="100" cy="100" r="95" class="n-borde"/><circle cx="100" cy="100" r="90" class="n-cara"/>${zona}${marcas}${nums}${iconos}
     <line x1="100" y1="100" x2="${hx.toFixed(2)}" y2="${hy.toFixed(2)}" class="n-hora"/><line x1="100" y1="100" x2="${mx.toFixed(2)}" y2="${my.toFixed(2)}" class="n-min"/>
     <circle cx="100" cy="100" r="6" class="n-eje"/>`;
 }
@@ -139,7 +145,7 @@ function actualYSiguiente() {
 }
 function pintarNina() {
   const { hoy, rs, ahora, luego } = actualYSiguiente(), r = ahora || luego, st = ahora ? "ahora" : "luego", t = ahoraMin();
-  pintarReloj(r, st);
+  pintarReloj();
   const a = $("n-ahora"), b = $("n-hecho");
   if (ahora) {
     const q = Math.ceil(mins(ahora.fin) - t), urg = q <= (ahora.aviso_min || 0);
@@ -162,7 +168,7 @@ function pintarNina() {
   }
   $("n-dia").innerHTML = rs.length ? rs.map(x => {
     const e = estado(x, hoy);
-    return `<li class="n-bola ${e}" title="${esc(x.nombre)}"><span class="i">${esc(x.icono)}</span><span class="h">${hhmm(x.inicio)}</span>${e === "bien" ? '<span class="b">⭐</span>' : e === "no" ? '<span class="b">✖</span>' : e === "tarde" ? '<span class="b">🐢</span>' : ""}</li>`;
+    return `<li class="n-bola ${e}" title="${esc(x.nombre)}" style="--c:${colorDe(x)}"><span class="i">${esc(x.icono)}</span><span class="h">${hhmm(x.inicio)}</span>${e === "bien" ? '<span class="b">⭐</span>' : e === "no" ? '<span class="b">✖</span>' : e === "tarde" ? '<span class="b">🐢</span>' : ""}</li>`;
   }).join("") : "";
   // premio siguiente
   const s = saldo(), ps = N.premios.filter(p => p.peque === PEQUE).sort((x, y) => x.coste - y.coste), sig = ps.find(p => p.coste > s) || ps[ps.length - 1];
@@ -200,7 +206,7 @@ function pintarPapas() {
     const rs = rutinasDe(pDia);
     $("np-lista").innerHTML = rs.length ? rs.map(r => {
       const e = estado(r, pDia), g = reg(r.id, pDia);
-      return `<li><span class="ri">${esc(r.icono)}</span><span class="rt"><b>${esc(r.nombre)}</b><span>${hhmm(r.inicio)} – ${hhmm(r.fin)}${e === "ahora" ? " · ahora" : e === "luego" ? " · luego" : e === "nueva" ? " · aún no contaba" : ""}</span></span>
+      return `<li><span class="ri" style="--c:${colorDe(r)}">${esc(r.icono)}</span><span class="rt"><b>${esc(r.nombre)}</b><span>${hhmm(r.inicio)} – ${hhmm(r.fin)}${e === "ahora" ? " · ahora" : e === "luego" ? " · luego" : e === "nueva" ? " · aún no contaba" : ""}</span></span>
         <span class="rs" role="group" aria-label="Cómo ha ido">${ESTADOS.map(([k, i, l]) => `<button data-r="${r.id}" data-e="${k}" aria-pressed="${!!g && g.estado === k}" title="${l}" aria-label="${l}">${i}</button>`).join("")}</span></li>`;
     }).join("") : `<li class="vacio">Este día no hay rutinas.</li>`;
     const extras = N.registro.filter(g => g.fecha === pDia && g.estado === "extra");
@@ -212,7 +218,7 @@ function pintarPapas() {
   }
   if (pTab === "rutinas") {
     const rs = rutinasActivas();
-    $("np-rl").innerHTML = rs.length ? rs.map(r => `<li><button data-ed="${r.id}"><span class="ri">${esc(r.icono)}</span><span class="rt"><b>${esc(r.nombre)}</b><span>${hhmm(r.inicio)} – ${hhmm(r.fin)} · ${diasTxt(r.dias)}</span></span><span class="rg">+${r.gana} / −${r.pierde} ⭐${r.aviso_min ? `<br>🔔 ${r.aviso_min} min` : ""}</span></button></li>`).join("")
+    $("np-rl").innerHTML = rs.length ? rs.map(r => `<li><button data-ed="${r.id}"><span class="ri" style="--c:${colorDe(r)}">${esc(r.icono)}</span><span class="rt"><b>${esc(r.nombre)}</b><span>${hhmm(r.inicio)} – ${hhmm(r.fin)} · ${diasTxt(r.dias)}</span></span><span class="rg">+${r.gana} / −${r.pierde} ⭐${r.aviso_min ? `<br>🔔 ${r.aviso_min} min` : ""}</span></button></li>`).join("")
       : `<li class="vacio">Aún no hay rutinas. Empieza por una, por ejemplo «Desayunar» de 9:00 a 9:15.</li>`;
   }
   if (pTab === "premios") {
@@ -240,7 +246,9 @@ async function marcar(rid, e) {
 let edR = null, fR = {};
 function abrirRutina(id) {
   edR = id ? N.rutinas.find(r => r.id === id) : null;
-  fR = edR ? { ...edR, dias: [...edR.dias] } : { nombre: "", icono: "🥣", inicio: "09:00", fin: "09:15", dias: [1, 2, 3, 4, 5, 6, 7], gana: 1, pierde: 1, aviso_min: 3 };
+  // color nuevo: el primero que no use otra rutina
+  const libre = COLORES.find(c => !rutinasActivas().some(r => colorDe(r) === c)) || COLORES[0];
+  fR = edR ? { ...edR, dias: [...edR.dias], color: colorDe(edR) } : { nombre: "", icono: "🥣", color: libre, inicio: "09:00", fin: "09:15", dias: [1, 2, 3, 4, 5, 6, 7], gana: 1, pierde: 1, aviso_min: 3 };
   $("nr-tit").textContent = edR ? "Cambiar rutina" : "Nueva rutina";
   $("nr-nom").value = fR.nombre; $("nr-ini").value = fR.inicio.slice(0, 5); $("nr-fin").value = fR.fin.slice(0, 5);
   $("nr-del").hidden = !edR; $("nr-msg").textContent = "";
@@ -249,6 +257,8 @@ function abrirRutina(id) {
 }
 function pintarFormR() {
   $("nr-ico").innerHTML = ICONOS.map(i => `<button type="button" data-i="${i}" aria-pressed="${fR.icono === i}">${i}</button>`).join("");
+  $("nr-col").innerHTML = COLORES.map(c => `<button type="button" data-c="${c}" style="--c:${c}" aria-pressed="${fR.color === c}" aria-label="Color ${c}"></button>`).join("");
+  $("nr-col").style.setProperty("--c", fR.color); $("nr-ico").style.setProperty("--c", fR.color);
   $("nr-dias").innerHTML = DIAS.map((l, i) => `<button type="button" class="chip" data-d="${i + 1}" aria-pressed="${fR.dias.includes(i + 1)}">${l}</button>`).join("");
   $("nr-gana").innerHTML = [0, 1, 2, 3].map(n => `<button type="button" class="chip" data-g="${n}" aria-pressed="${fR.gana === n}">${n ? "+" + n : "0"}</button>`).join("");
   $("nr-pierde").innerHTML = [0, 1, 2, 3].map(n => `<button type="button" class="chip" data-p="${n}" aria-pressed="${fR.pierde === n}">${n ? "−" + n : "0"}</button>`).join("");
@@ -256,7 +266,7 @@ function pintarFormR() {
 }
 async function guardarRutina(e) {
   e.preventDefault();
-  const f = { nombre: $("nr-nom").value.trim(), icono: fR.icono, inicio: $("nr-ini").value, fin: $("nr-fin").value, dias: fR.dias.slice().sort(), gana: fR.gana, pierde: fR.pierde, aviso_min: fR.aviso_min };
+  const f = { nombre: $("nr-nom").value.trim(), icono: fR.icono, color: fR.color, inicio: $("nr-ini").value, fin: $("nr-fin").value, dias: fR.dias.slice().sort(), gana: fR.gana, pierde: fR.pierde, aviso_min: fR.aviso_min };
   const msg = t => { $("nr-msg").textContent = t; $("nr-msg").className = "toast full e" };
   if (!f.nombre) return msg("Ponle un nombre, por ejemplo «Desayunar».");
   if (!f.inicio || !f.fin || f.fin <= f.inicio) return msg("La hora de acabar tiene que ser después de la de empezar.");
@@ -357,6 +367,7 @@ function enlazar() {
   $("n-velo-r").addEventListener("click", e => { if (e.target === $("n-velo-r")) $("n-velo-r").hidden = true });
   $("nr-del").addEventListener("click", quitarRutina);
   $("nr-ico").addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (b) { fR.icono = b.dataset.i; pintarFormR() } });
+  $("nr-col").addEventListener("click", e => { const b = e.target.closest("[data-c]"); if (b) { fR.color = b.dataset.c; pintarFormR() } });
   $("nr-dias").addEventListener("click", e => { const b = e.target.closest("[data-d]"); if (!b) return; const d = Number(b.dataset.d); fR.dias = fR.dias.includes(d) ? fR.dias.filter(x => x !== d) : [...fR.dias, d]; pintarFormR() });
   $("nr-atajos").addEventListener("click", e => { const b = e.target.closest("[data-s]"); if (b) { fR.dias = b.dataset.s.split("").map(Number); pintarFormR() } });
   $("nr-gana").addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (b) { fR.gana = Number(b.dataset.g); pintarFormR() } });
