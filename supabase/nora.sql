@@ -8,6 +8,7 @@ create table if not exists nora_rutinas (
   peque text not null default 'Nora',
   nombre text not null check (length(trim(nombre)) > 0),
   icono text not null default '⭐',
+  color text,                                  -- color de su franja en el reloj (#rrggbb)
   inicio time not null,
   fin time not null check (fin > inicio),
   dias smallint[] not null default '{1,2,3,4,5,6,7}',
@@ -103,3 +104,6 @@ grant execute on function avisos_nora_pendientes() to service_role;
 --     body := '{"tipo":"nora"}'::jsonb)
 --   where exists (select 1 from avisos_nora_pendientes())
 -- $$);
+
+-- 2026-11-24: color de cada rutina en el reloj (para bases creadas antes)
+alter table nora_rutinas add column if not exists color text check (color is null or color ~ '^#[0-9a-fA-F]{6}$');

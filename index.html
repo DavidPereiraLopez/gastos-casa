@@ -11,9 +11,9 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700;800&family=Baloo+2:wght@600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=20">
-<link rel="stylesheet" href="nora.css?v=20">
-<script src="tema.js?v=20"></script>
+<link rel="stylesheet" href="styles.css?v=21">
+<link rel="stylesheet" href="nora.css?v=21">
+<script src="tema.js?v=21"></script>
 </head>
 <body>
 <!--APP-START-->
@@ -472,11 +472,13 @@
     <div class="ch"><h2 id="nr-tit">Nueva rutina</h2><button class="ib" id="nr-x" aria-label="Cerrar" type="button">✕</button></div>
     <form class="fform" id="nr-form" novalidate>
       <label class="full">Nombre<input class="field" id="nr-nom" placeholder="Ej. Desayunar" autocomplete="off" required></label>
+      <div class="pk full"><span class="pl">Color en el reloj</span><div class="n-cols" id="nr-col" role="group" aria-label="Color"></div></div>
       <div class="pk full"><span class="pl">Icono</span><div class="n-icos" id="nr-ico" role="group" aria-label="Icono"></div></div>
       <label>Empieza<input class="field" type="time" id="nr-ini" required></label>
       <label>Acaba<input class="field" type="time" id="nr-fin" required></label>
       <div class="pk full"><span class="pl">Días</span><div class="chips" id="nr-dias" role="group" aria-label="Días"></div>
-        <div class="chips" id="nr-atajos"><button type="button" class="chip" data-s="1234567">Todos</button><button type="button" class="chip" data-s="12345">Lunes a viernes</button><button type="button" class="chip" data-s="67">Fin de semana</button></div></div>
+        <div class="chips" id="nr-atajos"><button type="button" class="chip" data-s="1234567">Todos</button><button type="button" class="chip" data-s="12345">Lunes a viernes</button><button type="button" class="chip" data-s="67">Fin de semana</button></div>
+        <span class="hint">Se repite todas las semanas en estos días, sin fecha de fin, hasta que la cambiéis o la quitéis.</span></div>
       <div class="pk full"><span class="pl">Si la hace a tiempo</span><div class="chips" id="nr-gana" role="group" aria-label="Estrellas que gana"></div></div>
       <div class="pk full"><span class="pl">Si no la hace</span><div class="chips" id="nr-pierde" role="group" aria-label="Estrellas que pierde"></div></div>
       <div class="pk full"><span class="pl">Aviso antes de que acabe</span><div class="chips" id="nr-aviso" role="group" aria-label="Aviso"></div></div>
@@ -503,11 +505,11 @@
 </div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=20"></script>
-<script src="pasillos.js?v=20"></script>
-<script src="store.js?v=20"></script>
-<script src="ticket.js?v=20"></script>
-<script src="nora.js?v=20"></script>
-<script src="app.js?v=20"></script>
+<script src="config.js?v=21"></script>
+<script src="pasillos.js?v=21"></script>
+<script src="store.js?v=21"></script>
+<script src="ticket.js?v=21"></script>
+<script src="nora.js?v=21"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>
