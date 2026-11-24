@@ -134,3 +134,9 @@
 .n-cols button{width:36px;height:36px;border-radius:50%;border:3px solid #fff;background:var(--c);cursor:pointer;box-shadow:0 0 0 1px var(--line)}
 .n-cols button[aria-pressed="true"]{box-shadow:0 0 0 3px var(--c);transform:scale(1.08)}
 .n-icos button[aria-pressed="true"]{background:color-mix(in srgb,var(--c,#ffb020) 25%,#fff);border-color:var(--c,#ffb020);box-shadow:inset 0 0 0 1px var(--c,#ffb020)}
+.np-relojes{display:grid;grid-template-columns:repeat(3,1fr);gap:10px 8px}
+.np-relojes:empty{display:none}
+.np-relojes figure{margin:0;display:grid;justify-items:center;gap:2px}
+.np-relojes svg{width:100%;max-width:170px;overflow:visible}
+.np-relojes .n-borde{filter:none}
+.np-relojes figcaption{font-size:.75rem;color:var(--muted)}

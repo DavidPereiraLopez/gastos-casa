@@ -137,6 +137,22 @@ function pintarReloj() {
     <circle cx="100" cy="100" r="6" class="n-eje"/>`;
 }
 
+// Reloj de una hora como lo verá Nora (la aguja larga recorre la hora), para que papá y mamá vean las franjas y los huecos
+function relojHora(rs, hora) {
+  const base = hora * 60;
+  let zona = "", iconos = "", nums = "", marcas = "";
+  rs.forEach(r => {
+    const a = Math.max(mins(r.inicio), base), b = Math.min(mins(r.fin), base + 59.5), c = colorDe(r);
+    if (b <= a) return;
+    zona += `<path d="${sector(angMin(a), angMin(b), 84)}" fill="${c}" class="n-franja"/>`;
+    const [ix, iy] = P(angMin((a + b) / 2), b - a < 6 ? 60 : 50);
+    iconos += `<g class="n-fi"><circle cx="${ix.toFixed(1)}" cy="${iy.toFixed(1)}" r="12" fill="#fff" stroke="${c}" stroke-width="2.5"/><text x="${ix.toFixed(1)}" y="${(iy + .8).toFixed(1)}">${esc(r.icono)}</text></g>`;
+  });
+  for (let i = 0; i < 60; i += 5) { const [x0, y0] = P(i / 60 * 2 * Math.PI, 90), [x1, y1] = P(i / 60 * 2 * Math.PI, 83); marcas += `<line x1="${x0.toFixed(2)}" y1="${y0.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${y1.toFixed(2)}" class="mh"/>` }
+  for (let i = 1; i <= 12; i++) { const [x, y] = P(i / 12 * 2 * Math.PI, 70); nums += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" class="n-num c${i % 6}">${i}</text>` }
+  return `<circle cx="100" cy="100" r="95" class="n-borde"/><circle cx="100" cy="100" r="90" class="n-cara"/>${zona}${marcas}${nums}${iconos}`;
+}
+
 // ---------------- Pantalla de Nora ----------------
 const quedanTxt = n => n <= 1 ? "¡Queda 1 minuto!" : `Quedan ${n} minutos`;
 function actualYSiguiente() {
@@ -202,12 +218,17 @@ function pintarPapas() {
   if (pTab === "hoy") {
     const hoy = iso(new Date()), d = diaDe(pDia);
     $("np-dia-t").textContent = pDia === hoy ? "Hoy" : d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "short" });
-    $("np-sig").disabled = pDia >= hoy;
+    const futuro = pDia > hoy, lim = new Date(); lim.setDate(lim.getDate() + 14);
+    $("np-sig").disabled = pDia >= iso(lim);
+    if (pDia === iso(new Date(Date.now() + 864e5))) $("np-dia-t").textContent = "Mañana";
     const rs = rutinasDe(pDia);
+    // un reloj por cada hora con alguna tarea, tal como lo verá Nora
+    const horas = [...new Set(rs.flatMap(r => { const hs = []; for (let h = Math.floor(mins(r.inicio) / 60); h * 60 < mins(r.fin); h++) hs.push(h); return hs }))].sort((x, y) => x - y);
+    $("np-relojes").innerHTML = horas.map(h => `<figure><svg viewBox="0 0 200 200" role="img" aria-label="De ${h}:00 a ${h + 1}:00">${relojHora(rs, h)}</svg><figcaption>${h}:00 – ${h + 1}:00</figcaption></figure>`).join("");
     $("np-lista").innerHTML = rs.length ? rs.map(r => {
       const e = estado(r, pDia), g = reg(r.id, pDia);
       return `<li><span class="ri" style="--c:${colorDe(r)}">${esc(r.icono)}</span><span class="rt"><b>${esc(r.nombre)}</b><span>${hhmm(r.inicio)} – ${hhmm(r.fin)}${e === "ahora" ? " · ahora" : e === "luego" ? " · luego" : e === "nueva" ? " · aún no contaba" : ""}</span></span>
-        <span class="rs" role="group" aria-label="Cómo ha ido">${ESTADOS.map(([k, i, l]) => `<button data-r="${r.id}" data-e="${k}" aria-pressed="${!!g && g.estado === k}" title="${l}" aria-label="${l}">${i}</button>`).join("")}</span></li>`;
+        ${futuro ? "" : `<span class="rs" role="group" aria-label="Cómo ha ido">`}${futuro ? "" : ESTADOS.map(([k, i, l]) => `<button data-r="${r.id}" data-e="${k}" aria-pressed="${!!g && g.estado === k}" title="${l}" aria-label="${l}">${i}</button>`).join("") + "</span>"}</li>`;
     }).join("") : `<li class="vacio">Este día no hay rutinas.</li>`;
     const extras = N.registro.filter(g => g.fecha === pDia && g.estado === "extra");
     $("np-extras").innerHTML = extras.map(g => `<li><span>${g.estrellas > 0 ? "+" : ""}${g.estrellas} ⭐ ${esc(g.nota || "")}</span><button class="ib" data-x="${g.id}" aria-label="Quitar">✕</button></li>`).join("");
