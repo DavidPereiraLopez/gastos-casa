@@ -587,7 +587,7 @@ async function pintarPush() {
     : "Este navegador no permite notificaciones.";
   if (Notification.permission === "denied") return txt.textContent = "Las notificaciones están bloqueadas para esta app. Actívalas en los ajustes del móvil.";
   const reg = await navigator.serviceWorker.ready, sus = await reg.pushManager.getSubscription();
-  txt.textContent = sus ? "Activados: te llegará una notificación cuando a una tarea tuya le queden 3 días o 1 día." : "Recibe una notificación cuando a una tarea tuya le queden 3 días o 1 día, aunque la app esté cerrada.";
+  txt.textContent = sus ? "Activados: te llegará una notificación cuando a una tarea tuya del tablero le queden 3 días o 1 día, y cuando a una rutina de Nora le queden pocos minutos (los que pongáis en su aviso)." : "Recibe una notificación cuando a una tarea tuya del tablero le queden 3 días o 1 día, y cuando a una rutina de Nora le queden pocos minutos, aunque la app esté cerrada.";
   btn.textContent = sus ? "Desactivar en este móvil" : "Activar avisos"; btn.classList.toggle("primary", !sus); btn.hidden = false;
 }
 $("push-btn").addEventListener("click", async () => {
@@ -599,7 +599,7 @@ $("push-btn").addEventListener("click", async () => {
       if (await Notification.requestPermission() !== "granted") throw new Error("No has dado permiso para las notificaciones.");
       const clave = await store.clavePush(); if (!clave) throw new Error("Los avisos aún no están listos en el servidor. Prueba más tarde.");
       const nueva = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(clave) });
-      await store.guardarPush(nueva, yo.user_id); aviso("push-msg", "Listo. Los avisos llegan por la mañana.");
+      await store.guardarPush(nueva, yo.user_id); aviso("push-msg", "Listo. Los del tablero llegan por la mañana; los de Nora, unos minutos antes de que acabe cada rutina.");
     }
   } catch (err) { aviso("push-msg", errTxt(err), true) }
   pintarPush();
