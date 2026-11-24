@@ -1,0 +1,128 @@
+/* Rutinas de Nora: diseño propio, infantil y muy visual (letra redonda Baloo 2, colores vivos, botones grandes). Encima de la app. */
+.n-chip{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:6px 12px 6px 8px;font:700 .9rem/1 "Baloo 2",var(--body);cursor:pointer;
+  background:linear-gradient(135deg,#ffe58a,#ffb3c7);color:#4a2b3a;box-shadow:0 4px 14px rgb(255 160 120 / .35);margin-left:auto}
+.n-chip span{font-size:1.15rem}.n-chip b{background:#fff;border-radius:999px;padding:3px 7px;font-size:.8rem}
+.top .n-chip + .mesnav{margin-left:0}
+
+.nora{--n-bg1:#fff4df;--n-bg2:#e4f3ff;--n-ink:#3a2c4a;--n-soft:#7d6f8c;--n-azul:#4cb8f5;--n-urge:#ff6b4a;--n-oro:#ffc21a;--n-rosa:#ff7aa8;--n-verde:#5cc977;--n-lila:#a58bff;
+  position:fixed;inset:0;z-index:40;overflow-y:auto;overscroll-behavior:contain;color:var(--n-ink);font-family:"Baloo 2",var(--body);
+  background:radial-gradient(120% 60% at 0% 0%,#ffe3ec 0,transparent 60%),radial-gradient(100% 60% at 100% 100%,#dff7e6 0,transparent 60%),linear-gradient(180deg,var(--n-bg1),var(--n-bg2));
+  padding:env(safe-area-inset-top,0px) 16px calc(24px + env(safe-area-inset-bottom,0px));-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.nora[data-modo="papas"]{font-family:var(--body);-webkit-user-select:auto;user-select:auto;background:var(--page);color:var(--fg)}
+.nora > *{max-width:560px;margin-inline:auto}
+.n-top{display:flex;align-items:center;gap:10px;padding:12px 0 4px}
+.n-tit{font-size:2rem;font-weight:800;margin:0;letter-spacing:-.01em;background:linear-gradient(90deg,#ff6fa0,#ff9f43,#4cb8f5);-webkit-background-clip:text;background-clip:text;color:transparent}
+.nora[data-modo="papas"] .n-tit{font-family:"Baloo 2",var(--body)}
+.n-est{margin-left:auto;display:flex;align-items:center;gap:4px;background:#fff;border-radius:999px;padding:4px 14px 4px 8px;box-shadow:0 4px 14px rgb(255 190 60 / .35);font-size:1.6rem;font-weight:800;line-height:1.1}
+.n-est span{font-size:1.5rem}
+.nora[data-modo="papas"] .n-est{display:none}
+.nora[data-modo="papas"] #n-papas{margin-left:auto}
+.n-ib{position:relative;width:42px;height:42px;border-radius:50%;border:0;background:rgb(255 255 255 / .75);color:var(--n-soft);font-size:1.1rem;cursor:pointer;display:grid;place-items:center;touch-action:none}
+.nora[data-modo="papas"] .n-ib{background:var(--surface);color:var(--fg)}
+.n-ib::after{content:"";position:absolute;inset:-3px;border-radius:50%;border:3px solid var(--n-rosa);clip-path:inset(0 100% 0 0);opacity:0}
+.n-ib.cargando::after{opacity:1;animation:n-carga .9s linear forwards}
+@keyframes n-carga{to{clip-path:inset(0 0 0 0)}}
+.n-pista{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--n-ink);color:#fff;border-radius:999px;padding:6px 14px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .2s;z-index:3;margin:0;white-space:nowrap}
+.n-pista.si{opacity:.92}
+
+/* Pantalla de Nora */
+.n-nina{display:grid;gap:14px;justify-items:center;padding-top:4px}
+.n-reloj-w{width:min(78vw,330px,44vh);aspect-ratio:1}
+#n-reloj{width:100%;height:100%;display:block;overflow:visible}
+.n-borde{fill:#ffd36b;filter:drop-shadow(0 8px 18px rgb(255 160 60 / .35))}
+.n-cara{fill:#fff}
+.n-zona{fill:var(--n-azul);opacity:.85}
+.n-zona.urge{fill:var(--n-urge);animation:n-latido 1s ease-in-out infinite}
+.n-zona.luego{fill:#b9e3fb;opacity:.7}
+.n-hecho-z{fill:#e9eef3}
+@keyframes n-latido{50%{opacity:.5}}
+.mm{stroke:#cfd6de;stroke-width:1}.mh{stroke:#9aa6b4;stroke-width:2.2;stroke-linecap:round}
+.n-num{font:800 17px "Baloo 2",sans-serif;text-anchor:middle;dominant-baseline:central;fill:var(--n-ink)}
+.n-num.c1{fill:#ff5d8f}.n-num.c2{fill:#ff9f1c}.n-num.c3{fill:#2bb3e6}.n-num.c4{fill:#3cb371}.n-num.c5{fill:#8f6bff}.n-num.c0{fill:#e5484d}
+.n-hora{stroke:var(--n-ink);stroke-width:7;stroke-linecap:round}
+.n-min{stroke:#ff5d8f;stroke-width:4.5;stroke-linecap:round}
+.n-eje{fill:var(--n-ink);stroke:#fff;stroke-width:2}
+.n-meta{font-size:15px;text-anchor:middle;dominant-baseline:central}
+
+.n-ahora{display:grid;justify-items:center;text-align:center;line-height:1.05;gap:2px}
+.n-ico{font-size:4.2rem;line-height:1;filter:drop-shadow(0 6px 10px rgb(0 0 0 / .12));animation:n-flota 3s ease-in-out infinite}
+@keyframes n-flota{50%{transform:translateY(-6px)}}
+.n-nom{font-size:2rem;font-weight:800}
+.n-pre{font-size:1rem;color:var(--n-soft);font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.n-q{font-size:1.45rem;font-weight:700;color:#1f8fd0}
+.n-h{font-size:1rem;color:var(--n-soft)}
+.n-ahora.urge .n-q{color:var(--n-urge);animation:n-latido 1s ease-in-out infinite}
+.n-ahora.urge .n-ico{animation:n-salta .6s ease-in-out infinite}
+@keyframes n-salta{50%{transform:translateY(-10px) rotate(-6deg)}}
+.n-ahora.luego .n-q{color:var(--n-soft)}
+.n-ahora.fin .n-q{color:#d08a00}
+.n-hecho{border:0;border-radius:999px;padding:14px 34px;font:800 1.7rem/1 "Baloo 2",sans-serif;color:#fff;cursor:pointer;
+  background:linear-gradient(180deg,#6fdc84,#33b558);box-shadow:0 6px 0 #23913f,0 14px 24px rgb(51 181 88 / .35);transition:transform .08s}
+.n-hecho:active{transform:translateY(4px);box-shadow:0 2px 0 #23913f,0 8px 14px rgb(51 181 88 / .3)}
+
+.n-dia{list-style:none;margin:6px 0 0;padding:4px 2px 8px;display:flex;gap:10px;overflow-x:auto;max-width:100%;width:100%;scroll-snap-type:x proximity}
+.n-dia:empty{display:none}
+.n-bola{flex:0 0 auto;position:relative;display:grid;justify-items:center;gap:0;scroll-snap-align:center}
+.n-bola .i{width:54px;height:54px;border-radius:50%;background:#fff;display:grid;place-items:center;font-size:1.7rem;box-shadow:0 3px 10px rgb(60 40 80 / .1)}
+.n-bola .h{font-size:.85rem;font-weight:700;color:var(--n-soft)}
+.n-bola .b{position:absolute;top:-6px;right:-6px;font-size:1rem;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:#fff;box-shadow:0 2px 6px rgb(0 0 0 / .12)}
+.n-bola.bien .i{background:#fff6cf;box-shadow:0 0 0 3px var(--n-oro)}
+.n-bola.no .i{opacity:.45;filter:grayscale(.8)}.n-bola.no .b{color:var(--n-urge);font-size:.8rem}
+.n-bola.tarde .i{opacity:.75}
+.n-bola.ahora .i{box-shadow:0 0 0 4px var(--n-azul);animation:n-flota 1.6s ease-in-out infinite}
+.n-bola.ahora .h{color:#1f8fd0}
+
+.n-premio{width:100%;display:flex;align-items:center;gap:12px;background:#fff;border-radius:22px;padding:12px 16px;box-shadow:0 6px 20px rgb(60 40 80 / .08)}
+.n-premio .pi{font-size:2.4rem;line-height:1}
+.n-premio .pt{flex:1;display:grid;gap:4px;min-width:0;line-height:1.1}
+.n-premio .pt b{font-size:1.2rem}
+.n-premio .pt span{font-size:.95rem;color:var(--n-soft);font-weight:600}
+.n-barra{height:14px;border-radius:999px;background:#f1eaf6;overflow:hidden}
+.n-barra i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#ffd84d,#ffab1a);transition:width .6s}
+
+/* Celebración */
+.n-fiesta{position:fixed;inset:0;z-index:5;display:grid;place-content:center;justify-items:center;text-align:center;background:rgb(255 248 230 / .94);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(4px);max-width:none;overflow:hidden}
+.n-fiesta[hidden]{display:none}
+.n-fiesta .n-gran{font-size:8rem;line-height:1}
+.n-fiesta p{font:800 2rem/1.1 "Baloo 2",sans-serif;margin:6px 0 0;color:var(--n-ink)}
+.n-fiesta .n-mas{font-size:2.6rem;color:#e09a00}
+.n-fiesta.va .n-gran{animation:n-pop .7s cubic-bezier(.2,1.6,.4,1) both}
+.n-fiesta i{position:absolute;left:50%;top:45%;width:12px;height:18px;border-radius:3px;background:var(--c);opacity:0}
+.n-fiesta.va i{animation:n-confeti 1.6s ease-out var(--d) forwards}
+@keyframes n-pop{0%{transform:scale(.2) rotate(-30deg)}100%{transform:scale(1) rotate(0)}}
+@keyframes n-confeti{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(calc(var(--x) * 46vw),55vh) rotate(720deg)}}
+@media (prefers-reduced-motion:reduce){.n-ico,.n-bola.ahora .i,.n-zona.urge,.n-ahora.urge .n-q{animation:none}}
+
+/* Panel de papá y mamá (estilo de la app) */
+.n-papas{display:grid;gap:12px;padding-top:6px}
+.np-cab{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#fff3c4,#ffe0ea);color:#4a2b3a;border-radius:18px;padding:14px 16px;font-weight:600}
+.np-cab b{font:800 1.6rem/1 "Baloo 2",var(--body)}
+.np-tabs{display:grid;grid-template-columns:repeat(3,1fr)}
+.np-l{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.np-l li{display:flex;align-items:center;gap:10px;min-width:0}
+.np-l li.vacio{color:var(--muted);font-size:.9rem}
+.np-l .ri{font-size:1.6rem;width:42px;height:42px;border-radius:12px;background:var(--bg);display:grid;place-items:center;flex:0 0 auto}
+.np-l .rt{flex:1;display:grid;min-width:0;line-height:1.25}
+.np-l .rt b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.np-l .rt span{font-size:.78rem;color:var(--muted)}
+.np-l .rs{display:flex;gap:4px}
+.np-l .rs button{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:1rem;cursor:pointer;filter:grayscale(1);opacity:.55}
+.np-l .rs button[aria-pressed="true"]{filter:none;opacity:1;border-color:var(--accent);background:var(--soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.np-lr li button{all:unset;display:flex;align-items:center;gap:10px;width:100%;cursor:pointer;min-width:0}
+.np-lr .rg{font-size:.75rem;color:var(--muted);text-align:right;white-space:nowrap}
+.np-sem{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.np-sem .sd{border:0;background:none;display:grid;justify-items:center;gap:2px;cursor:pointer;padding:4px 0;border-radius:10px;color:var(--fg);font:inherit}
+.np-sem .sd.on{background:var(--soft)}
+.np-sem .sv{font-size:.72rem;font-weight:600}.np-sem .sv.neg{color:var(--bad)}
+.np-sem .sb{height:40px;width:14px;display:flex;align-items:flex-end;background:var(--bg);border-radius:6px;overflow:hidden}
+.np-sem .sb i{display:block;width:100%;background:#ffc21a;border-radius:6px}.np-sem .sb i.neg{background:var(--bad);opacity:.6}
+.np-sem .sl{font-size:.7rem;color:var(--muted)}
+.np-extra{display:flex;gap:6px;align-items:center}.np-extra .field{flex:1;padding:7px 10px;font-size:.85rem}
+.np-x{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:.85rem}
+.np-x li{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.np-h{font-size:.9rem !important;margin:6px 0 4px !important}
+.n-velo{z-index:50}
+.n-icos{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:6px}
+.n-icos button{height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:1.45rem;cursor:pointer;line-height:1}
+.n-icos button[aria-pressed="true"]{background:#fff3c4;border-color:#ffb020;box-shadow:inset 0 0 0 1px #ffb020}
+@media (max-width:380px){.n-nom{font-size:1.7rem}.n-ico{font-size:3.6rem}.n-hecho{font-size:1.45rem;padding:12px 26px}}

@@ -4,11 +4,13 @@ d = pathlib.Path(__file__).parent
 html = (d/"index.html").read_text()
 body = html.split("<!--APP-START-->")[1].split("<!--APP-END-->")[0]
 fonts = re.search(r'<link rel="stylesheet" href="https://fonts[^>]+>', html).group(0)
-out = f"""<title>Gastos de Casa</title>
+out = f"""<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gastos de Casa</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 {fonts}
 <style>
 {(d/'styles.css').read_text()}
+{(d/'nora.css').read_text()}
 </style>
 <script>
 {(d/'tema.js').read_text()}
@@ -19,6 +21,9 @@ out = f"""<title>Gastos de Casa</title>
 </script>
 <script>
 {(d/'store.js').read_text()}
+</script>
+<script>
+{(d/'nora.js').read_text()}
 </script>
 <script>
 {(d/'app.js').read_text()}

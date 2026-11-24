@@ -109,6 +109,7 @@ async function arrancar() {
     sel.q = yo.nombre; sel.p = yo.pago_def || "Tarjeta"; sel.cu = yo.cuenta_def || hogar.cuentas[0] || ""; sel.g = hogar.grupos[0].g;
     $("demo").hidden = !store.demo;
     mostrar("v-app"); pintar(); pintarPush().catch(() => { });
+    window.nora && nora.arrancar(store);
     await apuntarFijos();
     store.escuchar(hogar.id, async () => { await cargar(); pintar() });
   } catch (err) { mostrar("v-login"); aviso("l-err", errTxt(err), true) }
@@ -118,6 +119,7 @@ async function cargar() {
   const d = await store.cargar();
   hogar = d.hogar; hogar.presupuestos = hogar.presupuestos || {}; hogar.personas = hogar.personas || []; miembros = d.miembros; data = d.gastos.map(corto); tickets = d.tickets; fijos = d.recurrentes || []; eventos = d.eventos || []; tareas = d.tareas || [];
   hogar.saldos = hogar.saldos || {}; movimientos = d.movimientos || []; compra = d.compra || []; productos = d.productos || [];
+  window.nora && nora.datos(d.nora);
 }
 // Gastos fijos: al abrir la app se apuntan los que ya tocaban este mes y faltan
 async function apuntarFijos() {
@@ -152,7 +154,7 @@ function pintar() {
   $("hola").innerHTML = `Hola, <em>${esc(yo.nombre)}</em>`;
   $("mes-t").textContent = nombreMes(mesVista);
   $("mes-sig").disabled = mesVista >= ym(today);
-  pintarInicio(); pintarBolsas(); pintarMovs(); pintarCal(); pintarTab(); pintarCompra(); pintarPres(); pintarMas();
+  pintarInicio(); pintarBolsas(); pintarMovs(); pintarCal(); pintarTab(); pintarCompra(); pintarPres(); pintarMas(); window.nora && nora.pintar();
   if (!$("velo-bo").hidden) pintarBolsa(); // por si el otro mete o gasta dinero mientras está abierta
 }
 
