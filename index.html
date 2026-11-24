@@ -10,9 +10,10 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700;800&display=swap">
-<link rel="stylesheet" href="styles.css?v=19">
-<script src="tema.js?v=19"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;500;600;700;800&family=Baloo+2:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="styles.css?v=20">
+<link rel="stylesheet" href="nora.css?v=20">
+<script src="tema.js?v=20"></script>
 </head>
 <body>
 <!--APP-START-->
@@ -45,6 +46,7 @@
 <div class="app" id="v-app" hidden>
   <div class="top">
     <p class="hola" id="hola">Hola</p>
+    <button class="n-chip" id="n-abrir" type="button" hidden aria-label="Abrir las rutinas de Nora"></button>
     <div class="mesnav" id="top-mes"><button class="ib" id="mes-ant" aria-label="Mes anterior">‹</button><span id="mes-t"></span><button class="ib" id="mes-sig" aria-label="Mes siguiente">›</button></div>
   </div>
   <p class="demo" id="demo" hidden>Estás viendo la demo con datos de ejemplo, guardados solo en este navegador. Cuando conectemos la base de datos, lo que apuntéis aparecerá en los móviles de los dos.</p>
@@ -423,12 +425,89 @@
     </form>
   </div>
 </div>
+<!-- Rutinas de Nora: pantalla para ella y panel para papá y mamá (nora.js, nora.css) -->
+<div class="nora" id="nora" hidden role="dialog" aria-modal="true" aria-label="Rutinas de Nora">
+  <header class="n-top">
+    <button class="n-ib" id="n-salir" type="button" aria-label="Salir (mantén pulsado)">✕</button>
+    <h1 class="n-tit">Nora</h1>
+    <div class="n-est" id="n-est" aria-label="Estrellas"></div>
+    <button class="n-ib" id="n-papas" type="button" aria-label="Para papá y mamá (mantén pulsado)">⚙︎</button>
+  </header>
+  <p class="n-pista" id="n-pista" role="status"></p>
+  <main class="n-nina" id="n-nina">
+    <div class="n-reloj-w"><svg id="n-reloj" viewBox="0 0 200 200" role="img" aria-label="Reloj"></svg></div>
+    <div class="n-ahora" id="n-ahora" aria-live="polite"></div>
+    <button class="n-hecho" id="n-hecho" type="button" hidden>¡Ya está! ⭐</button>
+    <ul class="n-dia" id="n-dia" aria-label="Mi día"></ul>
+    <div class="n-premio" id="n-premio"></div>
+  </main>
+  <main class="n-papas" id="n-papas-v" hidden>
+    <div class="np-cab"><span>Estrellas de Nora</span><b>⭐ <span id="np-saldo">0</span></b></div>
+    <div class="seg np-tabs" id="n-ptabs" role="group" aria-label="Apartado"><button data-p="hoy">Cómo va</button><button data-p="rutinas">Rutinas</button><button data-p="premios">Premios</button></div>
+    <section class="card" id="np-hoy">
+      <div class="ch"><div class="mesnav"><button class="ib" id="np-ant" type="button" aria-label="Día anterior">‹</button><span id="np-dia-t"></span><button class="ib" id="np-sig" type="button" aria-label="Día siguiente">›</button></div></div>
+      <div class="np-sem" id="np-sem" aria-label="Estrellas de la semana"></div>
+      <ul class="np-l" id="np-lista"></ul>
+      <p class="hint">⭐ a tiempo suma, 🐢 tarde no suma ni resta, ✖ no hecha resta. Cuando acaba la hora sin marcarla, se pone ✖ sola; aquí la podéis cambiar.</p>
+      <div class="np-extra" id="np-extra"><input class="field" id="np-extra-n" placeholder="Estrellas extra por… (opcional)" autocomplete="off"><button class="btn sm" data-n="-1" type="button">−1 ⭐</button><button class="btn sm primary" data-n="1" type="button">+1 ⭐</button></div>
+      <ul class="np-x" id="np-extras"></ul>
+    </section>
+    <section class="card" id="np-rutinas" hidden>
+      <div class="ch"><h2>Rutinas</h2><button class="btn sm primary" id="np-nueva" type="button">Nueva</button></div>
+      <ul class="np-l np-lr" id="np-rl"></ul>
+      <p class="hint">Para que el aviso llegue también con la app cerrada, activad los avisos en Más › Avisos en este móvil (en iPhone, con la app añadida a la pantalla de inicio).</p>
+    </section>
+    <section class="card" id="np-premios" hidden>
+      <div class="ch"><h2>Premios</h2><button class="btn sm primary" id="np-nuevo-p" type="button">Nuevo</button></div>
+      <ul class="np-l" id="np-pl"></ul>
+      <div id="np-canjes-w" hidden><h2 class="np-h">Ya conseguidos</h2><ul class="np-x" id="np-canjes"></ul></div>
+    </section>
+  </main>
+  <div class="n-fiesta" id="n-fiesta" hidden></div>
+</div>
+<!-- Hoja para crear o cambiar una rutina de Nora -->
+<div class="velo n-velo" id="n-velo-r" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="nr-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="nr-tit">Nueva rutina</h2><button class="ib" id="nr-x" aria-label="Cerrar" type="button">✕</button></div>
+    <form class="fform" id="nr-form" novalidate>
+      <label class="full">Nombre<input class="field" id="nr-nom" placeholder="Ej. Desayunar" autocomplete="off" required></label>
+      <div class="pk full"><span class="pl">Icono</span><div class="n-icos" id="nr-ico" role="group" aria-label="Icono"></div></div>
+      <label>Empieza<input class="field" type="time" id="nr-ini" required></label>
+      <label>Acaba<input class="field" type="time" id="nr-fin" required></label>
+      <div class="pk full"><span class="pl">Días</span><div class="chips" id="nr-dias" role="group" aria-label="Días"></div>
+        <div class="chips" id="nr-atajos"><button type="button" class="chip" data-s="1234567">Todos</button><button type="button" class="chip" data-s="12345">Lunes a viernes</button><button type="button" class="chip" data-s="67">Fin de semana</button></div></div>
+      <div class="pk full"><span class="pl">Si la hace a tiempo</span><div class="chips" id="nr-gana" role="group" aria-label="Estrellas que gana"></div></div>
+      <div class="pk full"><span class="pl">Si no la hace</span><div class="chips" id="nr-pierde" role="group" aria-label="Estrellas que pierde"></div></div>
+      <div class="pk full"><span class="pl">Aviso antes de que acabe</span><div class="chips" id="nr-aviso" role="group" aria-label="Aviso"></div></div>
+      <button class="btn primary full guardar" type="submit">Guardar</button>
+      <button class="btn danger full" type="button" id="nr-del">Quitar esta rutina</button>
+      <p class="toast full" id="nr-msg" role="status"></p>
+    </form>
+  </div>
+</div>
+<!-- Hoja para crear o cambiar un premio -->
+<div class="velo n-velo" id="n-velo-p" hidden>
+  <div class="hoja" role="dialog" aria-modal="true" aria-labelledby="npr-tit">
+    <div class="asa"></div>
+    <div class="ch"><h2 id="npr-tit">Nuevo premio</h2><button class="ib" id="npr-x" aria-label="Cerrar" type="button">✕</button></div>
+    <form class="fform" id="npr-form" novalidate>
+      <label class="full">Premio<input class="field" id="npr-nom" placeholder="Ej. Ir al parque de bolas" autocomplete="off" required></label>
+      <div class="pk full"><span class="pl">Icono</span><div class="n-icos" id="npr-ico" role="group" aria-label="Icono"></div></div>
+      <label class="full">Cuántas estrellas cuesta<input class="field" id="npr-cos" type="number" inputmode="numeric" min="1" max="999"></label>
+      <button class="btn primary full guardar" type="submit">Guardar</button>
+      <button class="btn danger full" type="button" id="npr-del">Borrar premio</button>
+      <p class="toast full" id="npr-msg" role="status"></p>
+    </form>
+  </div>
+</div>
 <!--APP-END-->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="config.js?v=19"></script>
-<script src="pasillos.js?v=19"></script>
-<script src="store.js?v=19"></script>
-<script src="ticket.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="config.js?v=20"></script>
+<script src="pasillos.js?v=20"></script>
+<script src="store.js?v=20"></script>
+<script src="ticket.js?v=20"></script>
+<script src="nora.js?v=20"></script>
+<script src="app.js?v=20"></script>
 </body>
 </html>

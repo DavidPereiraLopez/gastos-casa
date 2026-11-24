@@ -33,7 +33,7 @@
       unirse: async (codigo, nombre) => ok(await sb.rpc("unirse_hogar", { p_codigo: codigo, p_nombre_persona: nombre })),
       cargar: async () => {
         const desde = iso(new Date(new Date().getFullYear() - 2, 0, 1)); // este año y los dos anteriores
-        const [h, ms, gs, ts, rs, es, tas, mvs, cps, cpp] = await Promise.all([
+        const [h, ms, gs, ts, rs, es, tas, mvs, cps, cpp, nr, ng, np, nc] = await Promise.all([
           sb.from("hogares").select("*").single(),
           sb.from("miembros").select("*").order("creado"),
           sb.from("gastos").select("*").gte("fecha", desde).order("fecha", { ascending: false }).limit(20000),
@@ -43,7 +43,11 @@
           sb.from("tareas").select("*").order("orden"),
           sb.from("movimientos").select("*").order("fecha", { ascending: false }),
           sb.from("compra").select("*").order("creado"),
-          sb.from("compra_productos").select("*").order("veces", { ascending: false }).limit(2000)]);
+          sb.from("compra_productos").select("*").order("veces", { ascending: false }).limit(2000),
+          sb.from("nora_rutinas").select("*").order("inicio"),
+          sb.from("nora_registro").select("*").order("fecha").limit(20000),
+          sb.from("nora_premios").select("*").order("coste"),
+          sb.from("nora_canjes").select("*").order("creado")]);
         const hogar = ok(h), gastos = ok(gs);
         // el saldo de una hucha o cuenta común necesita todos sus gastos desde que se lleva, aunque sean de antes de esos años
         const viejas = Object.entries(hogar.saldos || {}).filter(([, v]) => v.desde < desde);
@@ -53,7 +57,8 @@
         }
         // si las tablas del calendario, del tablero, de las huchas o de la compra aún no existen, la app sigue funcionando sin ellos
         return { hogar, miembros: ok(ms), gastos, tickets: ok(ts), recurrentes: ok(rs), eventos: es.error ? [] : es.data, tareas: tas.error ? [] : tas.data, movimientos: mvs.error ? [] : mvs.data,
-          compra: cps.error ? [] : cps.data, productos: cpp.error ? [] : cpp.data };
+          compra: cps.error ? [] : cps.data, productos: cpp.error ? [] : cpp.data,
+          nora: nr.error ? null : { rutinas: nr.data, registro: ng.error ? [] : ng.data, premios: np.error ? [] : np.data, canjes: nc.error ? [] : nc.data } };
       },
       // para exportar: todos los gastos del hogar entre dos fechas (vacías = sin límite), de 1000 en 1000 (máximo de Supabase por consulta)
       exportarGastos: async (desde, hasta) => {
@@ -99,6 +104,12 @@
       delCompra: async ids => ok(await sb.from("compra").delete().in("id", ids)),
       // lo que suele comprar el hogar (para sugerir y recordar la sección): uno por lista y nombre
       guardarProducto: async p => ok(await sb.from("compra_productos").upsert(p, { onConflict: "hogar_id,lista,clave" }).select().single()),
+      // Rutinas de Nora: tabla = "nora_rutinas", "nora_registro", "nora_premios" o "nora_canjes"
+      noraAdd: async (tabla, f) => ok(await sb.from(tabla).insert(f).select().single()),
+      noraUpd: async (tabla, id, c) => ok(await sb.from(tabla).update(c).eq("id", id).select().single()),
+      noraDel: async (tabla, id) => ok(await sb.from(tabla).delete().eq("id", id)),
+      // los dos móviles pueden apuntar a la vez que una rutina no se hizo: la única por (rutina_id, fecha) evita duplicados
+      noraFallos: async filas => ok(await sb.from("nora_registro").upsert(filas, { onConflict: "rutina_id,fecha", ignoreDuplicates: true }).select()),
       // notificaciones push: cada móvil guarda su suscripción, ligada al usuario
       clavePush: async () => ok(await sb.rpc("vapid_publica")),
       guardarPush: async (sus, uid) => { const j = sus.toJSON(); ok(await sb.from("push_suscripciones").upsert({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, user_id: uid }, { onConflict: "endpoint" })) },
@@ -107,7 +118,7 @@
         if (canal) return;
         let t = null; const avisar = () => { clearTimeout(t); t = setTimeout(fn, 400) };
         canal = sb.channel("hogar-" + hogarId);
-        ["gastos", "tickets", "recurrentes", "eventos", "tareas", "movimientos", "compra"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
+        ["gastos", "tickets", "recurrentes", "eventos", "tareas", "movimientos", "compra", "nora_rutinas", "nora_registro", "nora_premios", "nora_canjes"].forEach(table => canal.on("postgres_changes", { event: "*", schema: "public", table, filter: "hogar_id=eq." + hogarId }, avisar));
         canal.subscribe();
       },
       dejarDeEscuchar: () => { if (canal) { sb.removeChannel(canal); canal = null } }
@@ -154,7 +165,7 @@
       const tickets = [{ id: uid(), producto: "Lavadora Bosch Serie 4", tienda: "MediaMarkt", fecha_compra: yAgo(2, 10), anos_garantia: 3, importe: 449, archivo: null },
         { id: uid(), producto: "Portátil Lenovo IdeaPad", tienda: "El Corte Inglés", fecha_compra: yAgo(1, 2), anos_garantia: 3, importe: 699, archivo: null },
         { id: uid(), producto: "Cafetera Krups", tienda: "Amazon", fecha_compra: yAgo(3, 6), anos_garantia: 3, importe: 89.9, archivo: null }];
-      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo(), tareas: tareasDemo(), movimientos: movimientosDemo(), ...compraDemo() };
+      return { hogar, miembros, gastos, tickets, recurrentes, eventos: eventosDemo(), tareas: tareasDemo(), movimientos: movimientosDemo(), ...compraDemo(), nora: noraDemo() };
     }
     // la demo lleva el saldo de la cuenta común y del efectivo común desde el día 1 del mes pasado
     function inicioSaldos() { return iso(new Date(today.getFullYear(), today.getMonth() - 1, 1)) }
@@ -192,6 +203,27 @@
       productos.push(...["Ibuprofeno", "Paracetamol", "Tacos para la pared"].map((nombre, i) => ({ lista: "otras", clave: P.clave(nombre), nombre, seccion: null, veces: 4 - i, ultima: new Date().toISOString() })));
       return { compra: out, productos };
     }
+    function noraDemo() {
+      const hace = new Date(today.getTime() - 9 * 864e5).toISOString();
+      const ru = (nombre, icono, inicio, fin, f) => ({ id: uid(), peque: "Nora", nombre, icono, inicio, fin, dias: [1, 2, 3, 4, 5, 6, 7], gana: 1, pierde: 1, aviso_min: 3, activa: true, creado: hace, ...f });
+      const rutinas = [ru("Vestirse", "👗", "08:30", "08:45", { dias: [1, 2, 3, 4, 5] }), ru("Desayunar", "🥣", "09:00", "09:15"), ru("Lavarse los dientes", "🪥", "09:15", "09:20"),
+        ru("Recoger los juguetes", "🧸", "13:30", "13:40"), ru("Comer", "🍝", "14:00", "14:30"), ru("Baño", "🛁", "20:00", "20:20"), ru("Cenar", "🍽️", "20:30", "21:00"),
+        ru("Pijama y cuento", "📖", "21:00", "21:15"), ru("A dormir", "🌙", "21:15", "21:30", { aviso_min: 5 })];
+      const registro = [];
+      const ya = today.getHours() * 60 + today.getMinutes();
+      for (let n = 7; n >= 0; n--) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - n), dow = (d.getDay() + 6) % 7 + 1;
+        rutinas.forEach((r, i) => {
+          if (!r.dias.includes(dow) || (!n && Number(r.fin.slice(0, 2)) * 60 + Number(r.fin.slice(3)) > ya)) return;
+          const e = !n ? "bien" : (i * 5 + n * 3) % 9 === 0 ? "no" : (i + n) % 7 === 0 ? "tarde" : "bien";
+          registro.push({ id: uid(), peque: "Nora", rutina_id: r.id, fecha: iso(d), estado: e, estrellas: e === "bien" ? r.gana : e === "no" ? -r.pierde : 0, creado: d.toISOString() });
+        });
+      }
+      const premios = [["Elegir la cena", "🍕", 10], ["Ir al parque de bolas", "🎠", 25], ["Peli con palomitas", "🍿", 40], ["Un juguete pequeño", "🎁", 60]]
+        .map(([nombre, icono, coste]) => ({ id: uid(), peque: "Nora", nombre, icono, coste, creado: hace }));
+      const canjes = [{ id: uid(), peque: "Nora", premio_id: premios[0].id, nombre: premios[0].nombre, icono: premios[0].icono, coste: 10, creado: new Date(today.getTime() - 3 * 864e5).toISOString() }];
+      return { rutinas, registro, premios, canjes };
+    }
     function eventosDemo() {
       const d = n => iso(new Date(today.getFullYear(), today.getMonth(), today.getDate() + n));
       const lunes = new Date(today); lunes.setDate(today.getDate() - (today.getDay() + 6) % 7);
@@ -210,6 +242,7 @@
     if (!db.tareas) db.tareas = tareasDemo();
     if (!db.movimientos) { db.movimientos = []; db.hogar.saldos ||= {} }
     if (!db.compra) Object.assign(db, compraDemo());
+    if (!db.nora) db.nora = noraDemo();
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)) } catch (e) { } };
     const archivos = {}; // fotos de tickets de la demo: solo mientras la página está abierta
     const clone = x => JSON.parse(JSON.stringify(x));
@@ -251,6 +284,10 @@
       delCompra: async ids => { db.compra = db.compra.filter(x => !ids.includes(x.id)); save() },
       guardarProducto: async p => { db.productos = db.productos.filter(x => !(x.lista === p.lista && x.clave === p.clave)); db.productos.push(p); save(); return clone(p) },
       urlTicket: async t => { if (!archivos[t.archivo]) throw new Error("En la demo las fotos solo se ven mientras la página está abierta."); return archivos[t.archivo] },
+      noraAdd: async (tabla, f) => { const x = { id: uid(), peque: "Nora", creado: new Date().toISOString(), ...f }; db.nora[tabla.slice(5)].push(x); save(); return clone(x) },
+      noraUpd: async (tabla, id, c) => { const x = db.nora[tabla.slice(5)].find(y => y.id === id); Object.assign(x, c); save(); return clone(x) },
+      noraDel: async (tabla, id) => { const k = tabla.slice(5); db.nora[k] = db.nora[k].filter(y => y.id !== id); if (k === "rutinas") db.nora.registro = db.nora.registro.filter(y => y.rutina_id !== id); save() },
+      noraFallos: async filas => { const out = filas.filter(f => !db.nora.registro.some(g => g.rutina_id === f.rutina_id && g.fecha === f.fecha)).map(f => ({ id: uid(), peque: "Nora", creado: new Date().toISOString(), ...f })); db.nora.registro.push(...out); save(); return clone(out) },
       clavePush: async () => null, guardarPush: async () => { }, borrarPush: async () => { },
       escuchar: () => { }, dejarDeEscuchar: () => { }
     };
