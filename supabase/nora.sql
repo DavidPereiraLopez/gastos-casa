@@ -87,7 +87,7 @@ language sql stable security definer set search_path = public as $$
   where r.activa and r.aviso_min is not null
     and extract(isodow from a.t)::smallint = any (r.dias)
     and a.t::time >= r.fin - make_interval(mins => r.aviso_min) and a.t::time < r.fin
-    and r.creado < a.t::date + r.inicio  -- la rutina ya existía cuando empezó hoy
+    and r.creado < (a.t::date + r.inicio) at time zone 'Europe/Madrid'  -- la rutina ya existía cuando empezó hoy
     and not exists (select 1 from nora_registro g where g.rutina_id = r.id and g.fecha = a.t::date)
     and not exists (select 1 from avisos_nora v where v.rutina_id = r.id and v.fecha = a.t::date and v.user_id = m.user_id)
 $$;
