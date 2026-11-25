@@ -146,3 +146,22 @@
 .np-relojes .n-borde{filter:none}
 .np-relojes figcaption{font-size:.85rem;text-align:center;line-height:1.2}.np-relojes figcaption span{font-size:.7rem;color:var(--muted)}
 .n-hm{font:700 11px var(--body);text-anchor:middle;dominant-baseline:central;fill:var(--fg)}
+/* Marcar una tarea en grande */
+.n-fi,.n-bola{cursor:pointer}
+.n-marca{position:fixed;inset:0;z-index:6;display:grid;place-items:center;padding:16px;background:rgb(58 44 74 / .45);max-width:none}
+.n-marca[hidden]{display:none}
+.n-marca-c{position:relative;width:min(100%,440px);background:#fff;border-radius:28px;padding:22px 18px 18px;display:grid;gap:16px;box-shadow:0 20px 50px rgb(0 0 0 / .25);border-top:10px solid var(--c);font-family:"Baloo 2",sans-serif;color:var(--n-ink)}
+.n-marca-x{position:absolute;top:10px;right:10px}
+.n-marca-t{display:grid;justify-items:center;text-align:center;line-height:1.1}
+.n-marca-t .n-ico{font-size:4rem;animation:none}
+.n-marca-t b{font-size:1.9rem}
+.n-marca-t span:last-child{color:var(--n-soft);font-size:1.05rem;font-weight:600}
+.n-marca-b{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.n-marca-b button{border:3px solid transparent;border-radius:22px;padding:14px 4px 10px;display:grid;justify-items:center;gap:2px;cursor:pointer;font:inherit;color:var(--n-ink)}
+.n-marca-b .mi{font-size:2.8rem;line-height:1}
+.n-marca-b .ml{font-size:1.25rem;font-weight:800}
+.n-marca-b .mn{font-size:.9rem;color:var(--n-soft);font-weight:700}
+.n-marca-b .m-bien{background:#fff4c2}.n-marca-b .m-tarde{background:#e3f4e6}.n-marca-b .m-no{background:#ffe3df}
+.n-marca-b .m-no .mi{color:var(--n-urge)}
+.n-marca-b button[aria-pressed="true"]{border-color:var(--n-ink);box-shadow:0 4px 0 var(--n-ink)}
+.n-marca-q{border:0;background:none;color:var(--n-soft);font:700 1rem "Baloo 2",sans-serif;text-decoration:underline;cursor:pointer}

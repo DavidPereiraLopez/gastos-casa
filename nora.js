@@ -125,7 +125,7 @@ function pintarReloj() {
     const urg = e === "ahora" && fin - t <= (r.aviso_min || 0);
     zona += `<path d="${sector(angMin(a), angMin(b), 84)}" fill="${c}" class="n-franja ${e}${urg ? " urge" : ""}"/>`;
     const [ix, iy] = P(angMin((a + b) / 2), 42); // por dentro de los números, para no taparlos
-    iconos += `<g class="n-fi ${e}"><circle cx="${ix.toFixed(1)}" cy="${iy.toFixed(1)}" r="12" fill="#fff" stroke="${c}" stroke-width="2.5"/><text x="${ix.toFixed(1)}" y="${(iy + .8).toFixed(1)}">${esc(r.icono)}</text></g>`;
+    iconos += `<g class="n-fi ${e}" data-r="${r.id}" role="button" aria-label="${esc(r.nombre)}"><circle cx="${ix.toFixed(1)}" cy="${iy.toFixed(1)}" r="12" fill="#fff" stroke="${c}" stroke-width="2.5"/><text x="${ix.toFixed(1)}" y="${(iy + .8).toFixed(1)}">${esc(r.icono)}</text></g>`;
   });
   let marcas = "";
   for (let i = 0; i < 60; i++) { const [x0, y0] = P(i / 60 * 2 * Math.PI, 90), [x1, y1] = P(i / 60 * 2 * Math.PI, i % 5 ? 87 : 83); marcas += `<line x1="${x0.toFixed(2)}" y1="${y0.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${y1.toFixed(2)}" class="${i % 5 ? "mm" : "mh"}"/>` }
@@ -188,7 +188,7 @@ function pintarNina() {
   }
   $("n-dia").innerHTML = rs.length ? rs.map(x => {
     const e = estado(x, hoy);
-    return `<li class="n-bola ${e}" title="${esc(x.nombre)}" style="--c:${colorDe(x)}"><span class="i">${esc(x.icono)}</span><span class="h">${hhmm(x.inicio)}</span>${e === "bien" ? '<span class="b">⭐</span>' : e === "no" ? '<span class="b">✖</span>' : e === "tarde" ? '<span class="b">🐢</span>' : ""}</li>`;
+    return `<li class="n-bola ${e}" data-r="${x.id}" role="button" tabindex="0" title="${esc(x.nombre)}" style="--c:${colorDe(x)}"><span class="i">${esc(x.icono)}</span><span class="h">${hhmm(x.inicio)}</span>${e === "bien" ? '<span class="b">⭐</span>' : e === "no" ? '<span class="b">✖</span>' : e === "tarde" ? '<span class="b">🐢</span>' : ""}</li>`;
   }).join("") : "";
   // premio siguiente
   const s = saldo(), ps = N.premios.filter(p => p.peque === PEQUE).sort((x, y) => x.coste - y.coste), sig = ps.find(p => p.coste > s) || ps[ps.length - 1];
@@ -257,14 +257,38 @@ function pintarPapas() {
   }
 }
 const diasTxt = ds => { const s = [...ds].sort().join(""); return s === "1234567" ? "todos los días" : s === "12345" ? "de lunes a viernes" : s === "67" ? "fin de semana" : [...ds].sort().map(d => DIAS[d - 1]).join(" ") };
-async function marcar(rid, e) {
-  const r = N.rutinas.find(x => x.id === rid), g = reg(rid, pDia), n = e === "bien" ? r.gana : e === "no" ? -r.pierde : 0;
+async function marcar(rid, e, fecha) {
+  const f = fecha || pDia, r = N.rutinas.find(x => x.id === rid), g = reg(rid, f), n = e === "bien" ? r.gana : e === "no" ? -r.pierde : 0;
   try {
     if (g && g.estado === e) { await store.noraDel("nora_registro", g.id); N.registro = N.registro.filter(x => x !== g) } // quitar (vuelve a "pendiente" si aún es su hora)
     else if (g) Object.assign(g, await store.noraUpd("nora_registro", g.id, { estado: e, estrellas: n }));
-    else N.registro.push(await store.noraAdd("nora_registro", { peque: PEQUE, rutina_id: rid, fecha: pDia, estado: e, estrellas: n }));
+    else N.registro.push(await store.noraAdd("nora_registro", { peque: PEQUE, rutina_id: rid, fecha: f, estado: e, estrellas: n }));
   } catch (err) { pista("No se ha podido guardar") }
   pintar();
+}
+
+// Marcar en grande: al tocar el icono de una tarea en el reloj o en «Mi día»
+let marcaId = null;
+function abrirMarca(rid) {
+  const r = N.rutinas.find(x => x.id === rid), hoy = iso(new Date());
+  if (!r) return;
+  marcaId = rid;
+  const g = reg(rid, hoy), e = estado(r, hoy);
+  $("n-marca-c").style.setProperty("--c", colorDe(r));
+  $("n-marca-t").innerHTML = `<span class="n-ico">${esc(r.icono)}</span><b>${esc(r.nombre)}</b><span>${hhmm(r.inicio)} – ${hhmm(r.fin)}${e === "luego" ? " · aún no ha empezado" : e === "ahora" ? " · ahora" : ""}</span>`;
+  $("n-marca-b").innerHTML = [["bien", "⭐", "¡Hecha!", `+${r.gana}`], ["tarde", "🐢", "Lenta", "0"], ["no", "✖", "No hecha", `−${r.pierde}`]]
+    .map(([k, i, l, n]) => `<button type="button" class="m-${k}" data-e="${k}" aria-pressed="${!!g && g.estado === k}"><span class="mi">${i}</span><span class="ml">${l}</span><span class="mn">${n} ⭐</span></button>`).join("");
+  $("n-marca-q").hidden = !g;
+  $("n-marca").hidden = false;
+}
+async function elegirMarca(e) {
+  const r = N.rutinas.find(x => x.id === marcaId), hoy = iso(new Date()), g = reg(marcaId, hoy);
+  $("n-marca").hidden = true;
+  if (!r) return;
+  if (e === "quitar") { if (g) { try { await store.noraDel("nora_registro", g.id); N.registro = N.registro.filter(x => x !== g) } catch (err) { pista("No se ha podido guardar") } } return pintar() }
+  if (g && g.estado === e) return;
+  await marcar(marcaId, e, hoy);
+  if (e === "bien") celebrar(r.gana, r.icono);
 }
 
 // formulario de rutina
@@ -372,6 +396,12 @@ function enlazar() {
   mantener($("n-papas"), () => { modo = modo === "nina" ? "papas" : "nina"; if (modo === "nina") mantenerPantalla(); pintar(); $("nora").scrollTop = 0 });
   $("n-hecho").addEventListener("click", hecho);
   $("n-fiesta").addEventListener("click", () => { $("n-fiesta").hidden = true });
+  const tocarTarea = e => { const t = e.target.closest("[data-r]"); if (t && modo === "nina") abrirMarca(t.dataset.r) };
+  $("n-reloj").addEventListener("click", tocarTarea); $("n-dia").addEventListener("click", tocarTarea);
+  $("n-marca-b").addEventListener("click", e => { const b = e.target.closest("[data-e]"); if (b) elegirMarca(b.dataset.e) });
+  $("n-marca-q").addEventListener("click", () => elegirMarca("quitar"));
+  $("n-marca-x").addEventListener("click", () => { $("n-marca").hidden = true });
+  $("n-marca").addEventListener("click", e => { if (e.target === $("n-marca")) $("n-marca").hidden = true });
   $("n-ptabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { pTab = b.dataset.p; pintar() } });
   $("np-ant").addEventListener("click", () => { const d = diaDe(pDia); pDia = iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1)); pintar() });
   $("np-sig").addEventListener("click", () => { const d = diaDe(pDia); pDia = iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)); pintar() });
@@ -388,7 +418,31 @@ function enlazar() {
   $("np-nuevo-p").addEventListener("click", () => abrirPremio(null));
   $("np-pl").addEventListener("click", e => { const c = e.target.closest("[data-canje]"), p = e.target.closest("[data-edp]"); if (c) canjear(c.dataset.canje); if (p) abrirPremio(p.dataset.edp) });
   $("np-canjes").addEventListener("click", e => { const b = e.target.closest("[data-xc]"); if (b) store.noraDel("nora_canjes", b.dataset.xc).then(() => { N.canjes = N.canjes.filter(c => c.id !== b.dataset.xc); pintar() }) });
-  // formulario de rutina
+  // Marcar en grande: al tocar el icono de una tarea en el reloj o en «Mi día»
+let marcaId = null;
+function abrirMarca(rid) {
+  const r = N.rutinas.find(x => x.id === rid), hoy = iso(new Date());
+  if (!r) return;
+  marcaId = rid;
+  const g = reg(rid, hoy), e = estado(r, hoy);
+  $("n-marca-c").style.setProperty("--c", colorDe(r));
+  $("n-marca-t").innerHTML = `<span class="n-ico">${esc(r.icono)}</span><b>${esc(r.nombre)}</b><span>${hhmm(r.inicio)} – ${hhmm(r.fin)}${e === "luego" ? " · aún no ha empezado" : e === "ahora" ? " · ahora" : ""}</span>`;
+  $("n-marca-b").innerHTML = [["bien", "⭐", "¡Hecha!", `+${r.gana}`], ["tarde", "🐢", "Lenta", "0"], ["no", "✖", "No hecha", `−${r.pierde}`]]
+    .map(([k, i, l, n]) => `<button type="button" class="m-${k}" data-e="${k}" aria-pressed="${!!g && g.estado === k}"><span class="mi">${i}</span><span class="ml">${l}</span><span class="mn">${n} ⭐</span></button>`).join("");
+  $("n-marca-q").hidden = !g;
+  $("n-marca").hidden = false;
+}
+async function elegirMarca(e) {
+  const r = N.rutinas.find(x => x.id === marcaId), hoy = iso(new Date()), g = reg(marcaId, hoy);
+  $("n-marca").hidden = true;
+  if (!r) return;
+  if (e === "quitar") { if (g) { try { await store.noraDel("nora_registro", g.id); N.registro = N.registro.filter(x => x !== g) } catch (err) { pista("No se ha podido guardar") } } return pintar() }
+  if (g && g.estado === e) return;
+  await marcar(marcaId, e, hoy);
+  if (e === "bien") celebrar(r.gana, r.icono);
+}
+
+// formulario de rutina
   $("nr-form").addEventListener("submit", guardarRutina);
   $("nr-x").addEventListener("click", () => { $("n-velo-r").hidden = true });
   $("n-velo-r").addEventListener("click", e => { if (e.target === $("n-velo-r")) $("n-velo-r").hidden = true });
