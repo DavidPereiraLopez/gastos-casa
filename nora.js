@@ -73,7 +73,7 @@ function cerrar() {
 }
 // la pantalla no se apaga mientras Nora la mira (donde el navegador lo permite)
 async function mantenerPantalla() { try { if (navigator.wakeLock && !wake && modo === "nina") wake = await navigator.wakeLock.request("screen") } catch (e) { } }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && abierta) { wake = null; mantenerPantalla(); pintar() } });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && abierta) { wake = null; mantenerPantalla(); empezarReloj(); pintar() } });
 // botones de mayores en la pantalla de Nora: hay que mantenerlos pulsados, para que ella no salga sin querer
 function mantener(el, fn) {
   let t = null;
@@ -131,9 +131,10 @@ function pintarReloj() {
   for (let i = 0; i < 60; i++) { const [x0, y0] = P(i / 60 * 2 * Math.PI, 90), [x1, y1] = P(i / 60 * 2 * Math.PI, i % 5 ? 87 : 83); marcas += `<line x1="${x0.toFixed(2)}" y1="${y0.toFixed(2)}" x2="${x1.toFixed(2)}" y2="${y1.toFixed(2)}" class="${i % 5 ? "mm" : "mh"}"/>` }
   let nums = "";
   for (let i = 1; i <= 12; i++) { const [x, y] = P(i / 12 * 2 * Math.PI, 70); nums += `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" class="n-num c${i % 6}">${i}</text>` }
-  const [hx, hy] = P(h / 12 * 2 * Math.PI, 44), [mx, my] = P(m / 60 * 2 * Math.PI, 74);
+  const sg = d.getSeconds(), [hx, hy] = P(h / 12 * 2 * Math.PI, 44), [mx, my] = P(m / 60 * 2 * Math.PI, 74), [sx, sy] = P(sg / 60 * 2 * Math.PI, 80), [cx, cy] = P(sg / 60 * 2 * Math.PI + Math.PI, 16);
   $("n-reloj").innerHTML = `<circle cx="100" cy="100" r="95" class="n-borde"/><circle cx="100" cy="100" r="90" class="n-cara"/>${zona}${marcas}${nums}${iconos}
     <line x1="100" y1="100" x2="${hx.toFixed(2)}" y2="${hy.toFixed(2)}" class="n-hora"/><line x1="100" y1="100" x2="${mx.toFixed(2)}" y2="${my.toFixed(2)}" class="n-min"/>
+    <line x1="${cx.toFixed(2)}" y1="${cy.toFixed(2)}" x2="${sx.toFixed(2)}" y2="${sy.toFixed(2)}" class="n-seg"/><circle cx="${sx.toFixed(2)}" cy="${sy.toFixed(2)}" r="3" class="n-seg-p"/>
     <circle cx="100" cy="100" r="6" class="n-eje"/>`;
 }
 
@@ -379,12 +380,13 @@ function pintar() {
 }
 function empezarReloj() {
   clearInterval(reloj);
-  reloj = setInterval(() => {
-    if (!abierta) return;
-    const { ahora, luego } = actualYSiguiente(), k = (ahora ? "a" + ahora.id : "") + (luego ? "l" + luego.id : "");
-    if (k !== actualKey) { actualKey = k; apuntarFallos() }
-    if (modo === "nina") pintarNina();
-  }, 1000);
+  reloj = setInterval(() => { try { tic() } catch (e) { } }, 1000); // el secundero y las agujas se mueven cada segundo
+}
+function tic() {
+  if (!abierta) return;
+  const { ahora, luego } = actualYSiguiente(), k = (ahora ? "a" + ahora.id : "") + (luego ? "l" + luego.id : "");
+  if (k !== actualKey) { actualKey = k; apuntarFallos() }
+  if (modo === "nina") pintarNina();
 }
 
 // ---------------- Eventos ----------------
