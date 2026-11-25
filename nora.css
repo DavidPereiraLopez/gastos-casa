@@ -49,6 +49,8 @@
 .n-num.c1{fill:#ff5d8f}.n-num.c2{fill:#ff9f1c}.n-num.c3{fill:#2bb3e6}.n-num.c4{fill:#3cb371}.n-num.c5{fill:#8f6bff}.n-num.c0{fill:#e5484d}
 .n-hora{stroke:var(--n-ink);stroke-width:8;stroke-linecap:round;filter:drop-shadow(0 0 1.5px #fff)}
 .n-min{stroke:#ff2e87;stroke-width:5.5;stroke-linecap:round;filter:drop-shadow(0 0 .8px #fff) drop-shadow(0 0 .8px #3a2c4a) drop-shadow(0 0 .6px #3a2c4a)}
+.n-seg{stroke:#e67e00;stroke-width:2;stroke-linecap:round}
+.n-seg-p{fill:#e67e00}
 .n-eje{fill:var(--n-ink);stroke:#fff;stroke-width:2}
 .n-meta{font-size:15px;text-anchor:middle;dominant-baseline:central}
 
