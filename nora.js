@@ -61,19 +61,24 @@ async function apuntarFallos() {
 function abrir(m) {
   if (!N) return;
   abierta = true; modo = m || "nina"; $("nora").hidden = false; document.body.style.overflow = "hidden";
-  try { localStorage.setItem("nora-abierta", "1") } catch (e) { }
   if (location.hash !== "#nora") history.replaceState(null, "", "#nora");
   pintar(); empezarReloj(); mantenerPantalla();
 }
 function cerrar() {
   abierta = false; $("nora").hidden = true; document.body.style.overflow = "";
-  try { localStorage.removeItem("nora-abierta") } catch (e) { }
   if (location.hash === "#nora") history.replaceState(null, "", location.pathname + location.search);
   clearInterval(reloj); reloj = null; if (wake) { wake.release().catch(() => { }); wake = null }
 }
 // la pantalla no se apaga mientras Nora la mira (donde el navegador lo permite)
 async function mantenerPantalla() { try { if (navigator.wakeLock && !wake && modo === "nina") wake = await navigator.wakeLock.request("screen") } catch (e) { } }
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && abierta) { wake = null; mantenerPantalla(); empezarReloj(); pintar() } });
+// Al abrir la app de lunes a viernes entre las 8:00 y las 9:30 va directa al reloj de Nora; el resto del tiempo, a Inicio
+const horaDeNora = () => { const d = new Date(), m = d.getHours() * 60 + d.getMinutes(); return d.getDay() >= 1 && d.getDay() <= 5 && m >= 480 && m < 570 };
+let oculta = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { oculta = Date.now(); return }
+  if (abierta) { wake = null; mantenerPantalla(); empezarReloj(); pintar() }
+  else if (N && store && oculta && Date.now() - oculta > 5 * 6e4 && horaDeNora()) abrir("nina"); // vuelve a la app tras un rato fuera
+});
 // botones de mayores en la pantalla de Nora: hay que mantenerlos pulsados, para que ella no salga sin querer
 function mantener(el, fn) {
   let t = null;
@@ -476,8 +481,8 @@ window.nora = {
     store = s;
     if (!enlazado) { enlazado = true; enlazar() }
     apuntarFallos();
-    let antes = false; try { antes = localStorage.getItem("nora-abierta") === "1" } catch (e) { }
-    if (N && (location.hash === "#nora" || antes)) abrir("nina"); else pintar();
+    try { localStorage.removeItem("nora-abierta") } catch (e) { } // ya no se recuerda si estaba abierta
+    if (N && (location.hash === "#nora" || horaDeNora())) abrir("nina"); else pintar();
   },
   pintar
 };
