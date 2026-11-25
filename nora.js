@@ -78,7 +78,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 function mantener(el, fn) {
   let t = null;
   const fin = () => { clearTimeout(t); el.classList.remove("cargando") };
-  el.addEventListener("pointerdown", e => { if (modo !== "nina") return; e.preventDefault(); el.classList.add("cargando"); t = setTimeout(() => { fin(); fn() }, 900) });
+  el.addEventListener("pointerdown", e => { if (modo !== "nina") return; e.preventDefault(); el.classList.add("cargando"); t = setTimeout(() => { fin(); fn() }, 600) });
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => el.addEventListener(ev, fin));
   el.addEventListener("click", () => { if (modo !== "nina") fn(); else pista("Mantén pulsado para entrar") });
   el.addEventListener("contextmenu", e => e.preventDefault());
@@ -367,6 +367,8 @@ function empezarReloj() {
 function enlazar() {
   $("n-abrir").addEventListener("click", () => abrir("nina"));
   mantener($("n-salir"), cerrar);
+  // acceso directo a «Cómo va» de hoy desde la pantalla del reloj
+  mantener($("n-comova"), () => { modo = "papas"; pTab = "hoy"; pDia = iso(new Date()); pintar(); $("nora").scrollTop = 0 });
   mantener($("n-papas"), () => { modo = modo === "nina" ? "papas" : "nina"; if (modo === "nina") mantenerPantalla(); pintar(); $("nora").scrollTop = 0 });
   $("n-hecho").addEventListener("click", hecho);
   $("n-fiesta").addEventListener("click", () => { $("n-fiesta").hidden = true });
